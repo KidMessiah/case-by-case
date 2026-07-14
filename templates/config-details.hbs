@@ -1,0 +1,163 @@
+<section class="tab{{#if tab.active}} active{{/if}}" data-group="{{tab.group}}" data-tab="{{tab.id}}">
+
+  {{#*inline "cbFilter"}}
+  <div class="case-by-case-filter" data-filter="{{key}}">
+    <div class="case-by-case-filter-head">
+      <input type="checkbox" class="case-by-case-filter-enable" {{#if enabled}}checked{{/if}} />
+      <label class="case-by-case-filter-toggle" data-action="toggleFilterOpen">
+        <i class="fa-solid fa-chevron-right case-by-case-filter-caret"></i>
+        <span class="case-by-case-filter-title">{{title}}</span>
+      </label>
+      {{#if hint}}<i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="{{hint}}"></i>{{/if}}
+    </div>
+    <div class="case-by-case-filter-body">
+      <div class="case-by-case-transfer" data-filter="{{key}}">
+        <div class="case-by-case-transfer-col">
+          <div class="case-by-case-transfer-head">Options</div>
+          <ul class="case-by-case-transfer-list" data-list="available">
+            {{#each available}}<li data-action="transferMove" data-value="{{value}}">{{label}}</li>{{/each}}
+          </ul>
+        </div>
+        <div class="case-by-case-transfer-col">
+          <div class="case-by-case-transfer-head"><i class="fa-solid fa-filter"></i> Filtered</div>
+          <ul class="case-by-case-transfer-list" data-list="selected">
+            {{#each selected}}<li data-action="transferMove" data-value="{{value}}">{{label}}</li>{{/each}}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  {{/inline}}
+
+  <fieldset>
+    <legend>Identity</legend>
+    <div class="form-group">
+      <label>Name</label>
+      <input type="text" name="name" value="{{name}}" placeholder="{{#if isMultipart}}Great Weapon Master{{else}}Aura of Protection{{/if}}" autofocus />
+    </div>
+  </fieldset>
+
+  {{#if isMultipart}}
+  <fieldset>
+    <legend>Behavior</legend>
+    <div class="form-group case-by-case-toggle-row" data-name="optional">
+      <label>Optional <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="If on, the group prompts before applying. If off, all sub-bonuses apply automatically."></i></label>
+      <i class="case-by-case-toggle fa-duotone {{#if optional}}fa-toggle-on{{else}}fa-toggle-off{{/if}}" data-action="toggleSwitch" data-field="optional" role="switch" aria-checked="{{#if optional}}true{{else}}false{{/if}}"></i>
+    </div>
+
+    <div class="form-group">
+      <label>When To Ask <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="For e.g. Great Weapon Master, choose before the attack roll: a single yes/no applies -5 to the attack and carries +10 to the damage roll. Before each associated roll asks at every roll instead."></i></label>
+      <select name="promptTiming">
+        {{#each timingOptions}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}
+      </select>
+    </div>
+  </fieldset>
+
+  <p class="hint case-by-case-note">Add the sub-bonuses (−5 attack, +10 damage, …) from the bonus list with <strong>Add sub-bonus</strong>.</p>
+  {{else}}
+  <fieldset>
+    <legend>Effect</legend>
+    <div class="form-group">
+      <label>Bonus Type <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="Which kind of d20 roll (or damage roll) this bonus applies to. For Advantage / Disadvantage, this is a standalone grant of that mode instead (optionally with extra dice)."></i></label>
+      <select name="type">
+        {{#each typeOptions}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}
+      </select>
+    </div>
+
+    <div class="form-group case-by-case-modtype-group">
+      <label>Modification Type <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="Simple Bonus just adds the formula below like normal. Any other option instead modifies EVERY die already in this roll (the weapon's/base roll's own dice, plus any other bonus's added dice) using the value below as its threshold, instead of adding a new term."></i></label>
+      <select name="modType">
+        {{#each modTypeOptions}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}
+      </select>
+    </div>
+
+    <div class="form-group case-by-case-formula-group">
+      <label>
+        <span class="case-by-case-when-default">Bonus Formula <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="A roll formula, e.g. 2, 1d4, @abilities.cha.mod. Any @path that exists in the actor's roll data works here, not just what the autocomplete suggests -- the dropdown only lists the most common ones (abilities, proficiency, spellcasting, etc.); type past it for anything else (e.g. @skills.prc.total, @attributes.movement.fly). For auras, @variables use the source actor's data."></i></span>
+        <span class="case-by-case-when-crit">Crit On (lowest roll) <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="The lowest die result that scores a critical hit, e.g. 18 crits on 18-20. 20 = normal."></i></span>
+        <span class="case-by-case-when-dc">Spell Save DC Bonus <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="Added to your Spell Save DC, e.g. 1 raises every spell's save DC by 1. Affects the value shown in your spellcasting panel."></i></span>
+        <span class="case-by-case-when-reroll">Reroll At Or Below <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="Any die in this roll showing this value or below gets rerolled once. E.g. 1 rerolls 1s (Great Weapon Fighting-style)."></i></span>
+        <span class="case-by-case-when-minDie">Minimum Die Value <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="Any die in this roll below this value counts as this value instead. E.g. 3 makes every die act as if it rolled at least a 3."></i></span>
+        <span class="case-by-case-when-maxDie">Maximum Die Value <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="Any die in this roll above this value is capped down to this value."></i></span>
+        <span class="case-by-case-when-explode">Explode At Or Above <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="Any die in this roll showing this value or higher rerolls and adds the new result, repeating on further explosions. Leave blank to only explode on the die's own highest face."></i></span>
+        <span class="case-by-case-when-resize">Die Size Steps Up <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="Every die in this roll steps up this many sizes along d4 -> d6 -> d8 -> d10 -> d12 -> d20. E.g. 1 turns a d4 into a d6 and a d10 into a d12; 2 turns a d6 into a d10. Use a negative number (e.g. -1) to step down instead."></i></span>
+      </label>
+      <div class="case-by-case-formula-row">
+        <input type="text" name="bonus" value="{{bonus}}" placeholder="@abilities.cha.mod" />
+        <button type="button" class="case-by-case-preset-btn" title="Insert a common scaling pattern">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+        </button>
+      </div>
+      <p class="hint case-by-case-formula-preview"></p>
+    </div>
+
+    <div class="form-group case-by-case-toggle-row case-by-case-grants-toggle" data-name="grantsMode">
+      <label><span class="case-by-case-when-adv">Grants Advantage</span><span class="case-by-case-when-dis">Grants Disadvantage</span> <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="If on, this bonus forces the roll into this mode by itself. If off, it grants nothing on its own. Its Additional d20s (below) still only apply when the roll ends up in this mode from some OTHER source. Use this for something like an aura that adds dice to saves that already have advantage, without the aura itself granting that advantage."></i></label>
+      <i class="case-by-case-toggle fa-duotone {{#if grantsMode}}fa-toggle-on{{else}}fa-toggle-off{{/if}}" data-action="toggleSwitch" data-field="grantsMode" role="switch" aria-checked="{{#if grantsMode}}true{{else}}false{{/if}}"></i>
+    </div>
+
+    <div class="case-by-case-roll-kinds">
+      {{> cbFilter rollKinds key="rollKinds" title="Applies To" hint="Which d20 roll kinds this bonus's mode and/or extra dice apply to. Leave off to apply to all of them."}}
+    </div>
+
+    <div class="form-group case-by-case-extra-dice">
+      <label>Additional d20s <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="Extra d20 dice to add to the pool. Example: 1 turns 2d20kh/kl into 3d20kh/kl. Dice expressions are supported. Only applies when the roll actually ends up in this bonus's mode (Advantage/Disadvantage), regardless of whether Grants Advantage/Disadvantage above is on."></i></label>
+      <input type="text" name="additionalD20" value="{{additionalD20}}" placeholder="1" />
+    </div>
+  </fieldset>
+  {{/if}}
+
+  {{#unless isChildMode}}
+  <fieldset class="case-by-case-consume-fieldset" data-name="consumeFieldset">
+    <legend>Consumption</legend>
+    <div class="form-group case-by-case-toggle-row" data-name="consumeResource">
+      <label>Consume Resource <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="{{#if isMultipart}}Spends once for the whole group, the instant the group is accepted in the pre-roll dialog -- only available when When To Ask is set to before the attack or damage roll, since that's the only timing with one single accept decision for the group.{{else}}Only takes effect on an Optional bonus: spending the resource happens automatically the instant the bonus is accepted in the pre-roll dialog, before the roll itself completes.{{/if}}"></i></label>
+      <i class="case-by-case-toggle fa-duotone {{#if consumption.enabled}}fa-toggle-on{{else}}fa-toggle-off{{/if}}" data-action="toggleSwitch" data-field="consumeResource" role="switch" aria-checked="{{#if consumption.enabled}}true{{else}}false{{/if}}"></i>
+    </div>
+
+    <div class="case-by-case-consume-body">
+      <div class="form-group">
+        <label>Resource <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="Scanned from this bonus's own actor. Pick a category, then the specific resource within it. This fixes WHICH resource is spent; only the amount is chosen later, when the bonus is actually accepted."></i></label>
+        <div class="case-by-case-resource-row">
+          <select name="consumeType" class="case-by-case-resource-category">
+            {{#each consumption.typeOptions}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}
+          </select>
+          <select name="consumeTarget" class="case-by-case-resource-target" {{#unless consumption.targetOptions.length}}disabled{{/unless}}>
+            {{#unless consumption.target}}<option value="" disabled selected>Choose...</option>{{/unless}}
+            {{#each consumption.targetOptions}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group case-by-case-consume-amount-group">
+        <label>Amount <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="The player picks anywhere in this range when accepting the bonus. Equal min/max is a flat, non-scaling cost. Reference the chosen amount in the {{#if isMultipart}}sub-bonus formulas{{else}}Bonus Formula above{{/if}} with @consumed."></i></label>
+        <div class="case-by-case-consume-range">
+          <input type="number" name="consumeMin" value="{{consumption.min}}" min="1" step="1" /> to
+          <input type="number" name="consumeMax" value="{{consumption.max}}" min="1" step="1" />
+        </div>
+      </div>
+      <p class="hint case-by-case-consume-any-note" style="display:none">The player picks <strong>which available spell slot level</strong> to spend when accepting the bonus. <code>@consumed</code> resolves to that chosen level (e.g. a 3rd-level slot → <code>@consumed</code> = 3), not a spent quantity — a 3rd-level slot always spends exactly one slot. Reference it in the {{#if isMultipart}}sub-bonus formulas{{else}}Bonus Formula above{{/if}}, e.g. <code>(1 + @consumed)d8[radiant]</code> for a Divine Smite-style scaling bonus.</p>
+    </div>
+  </fieldset>
+  {{/unless}}
+
+  {{#unless isChildMode}}
+  {{#if isItemHost}}
+  <fieldset>
+    <legend>Scope</legend>
+    <div class="form-group case-by-case-toggle-row" data-name="scopeToHostItem">
+      <label>This Item Only <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="If on, only applies to rolls made with this exact item, not any other matching item you own. Only available for Attack, Damage, Healing, Temp HP, or Crit Range."></i></label>
+      <i class="case-by-case-toggle fa-duotone {{#if scopeToHostItem}}fa-toggle-on{{else}}fa-toggle-off{{/if}}" data-action="toggleSwitch" data-field="scopeToHostItem" role="switch" aria-checked="{{#if scopeToHostItem}}true{{else}}false{{/if}}"></i>
+    </div>
+  </fieldset>
+  {{/if}}
+
+  <fieldset>
+    <legend>Stacking</legend>
+    <div class="form-group">
+      <label>Stacking Tag <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="Leave blank and this always stacks. Give it a tag (e.g. blessed) and any other bonus with the same tag won't stack. Only the largest applies."></i></label>
+      <input type="text" name="stackTag" value="{{stackTag}}" placeholder="(blank = always stacks)" />
+    </div>
+  </fieldset>
+  {{/unless}}
+</section>

@@ -1,0 +1,1234 @@
+/* Case by Case styles, matched to dnd5e's activity-sheet look. */
+
+.case-by-case {
+  --cb-font-head:      "Roboto Condensed", var(--font-primary, "Signika", sans-serif);
+  --cb-font-slab:       "Roboto Slab", serif;
+  --cb-font-body:      "Roboto", var(--font-primary, "Signika", sans-serif);
+  --cb-field-height:   26px;
+
+  /* Light palette. */
+  --cb-gold:           #9f9275;
+  --cb-bg:             #f1ebe8;
+  --cb-card-bg:        #f8f4f1;
+  --cb-border:         #9f9275;
+  --cb-fieldset-border: #7a7971;
+  --cb-legend-color:   #666666;
+  --cb-text:           #191813;
+  --cb-text-muted:     #666666;
+  --cb-text-tertiary:  #999999;
+  --cb-input-bg:       rgba(0, 0, 0, 0.1);
+  --cb-input-border:   transparent;
+  --cb-option-bg:      #f8f4f1;
+  --cb-option-text:    #191813;
+  --cb-toggle-off:     #999999;
+  --cb-overlay:        rgba(0, 0, 0, 0.07);
+  --cb-overlay-strong: rgba(0, 0, 0, 0.12);
+  --cb-shadow:         rgba(0, 0, 0, 0.35);
+  --cb-blue:           cornflowerblue;
+}
+
+/* Dark palette. */
+.case-by-case.case-by-case-theme-dark {
+  --cb-gold:           #9f9275;
+  --cb-bg:             #0d0b0b;
+  --cb-card-bg:        #252830;
+  --cb-border:         #242731;
+  --cb-fieldset-border: #434857;
+  --cb-legend-color:   #9f9275;
+  --cb-text:           #cfd2da;
+  --cb-text-muted:     #999999;
+  --cb-text-tertiary:  #999999;
+  --cb-input-bg:       #252830;
+  --cb-input-border:   #242731;
+  --cb-option-bg:      #252830;
+  --cb-option-text:    #cfd2da;
+  --cb-toggle-off:     #434857;
+  --cb-overlay:        rgba(255, 255, 255, 0.06);
+  --cb-overlay-strong: rgba(255, 255, 255, 0.12);
+  --cb-shadow:         rgba(0, 0, 0, 0.45);
+  --cb-blue:           cornflowerblue;
+}
+
+/* Header button. */
+.case-by-case-sheet-btn {
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 1rem;
+  color: inherit;
+  opacity: 0.85;
+  line-height: 1;
+}
+.case-by-case-sheet-btn:hover { opacity: 1; color: #9f9275; }
+
+/* Shared window chrome. */
+.case-by-case.bonus-manager,
+.case-by-case.bonus-config {
+  border-radius: 6px;
+  background: var(--cb-bg);
+  border: 1px solid var(--cb-border);
+  box-shadow: 0 0 20px var(--cb-shadow);
+}
+
+.case-by-case .window-header {
+  border: none;
+  background: none;
+  position: relative;
+  overflow: visible;
+  justify-content: flex-end;
+  margin-block-end: calc(var(--font-size-24) + 6px);
+}
+.case-by-case .window-header .window-title {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: calc(var(--header-height) - 20px);
+  text-align: center;
+  font-family: var(--cb-font-slab);
+  font-weight: bold;
+  font-size: var(--font-size-24);
+  line-height: 1;
+  color: var(--cb-text);
+  z-index: -1;
+  overflow: visible;
+  text-overflow: unset;
+}
+.case-by-case .window-header .window-icon {
+  color: var(--cb-gold);
+  font-size: 0.8em;
+  margin-right: auto;
+}
+/* Small header controls. */
+.case-by-case .window-header .header-control {
+  border-radius: 100%;
+  background: var(--cb-overlay-strong);
+  color: var(--cb-text-muted);
+  width: 20px;
+  height: 20px;
+}
+.case-by-case .window-header .header-control:hover { color: var(--cb-gold); }
+
+/* In the workbench, the centered title only reserves space over the right pane. */
+.case-by-case.bonus-workbench.bonus-config .window-header {
+  margin-block-end: 6px;
+}
+.case-by-case.bonus-workbench.bonus-config .window-header .window-title {
+  inset-inline-start: 300px;
+  inset-inline-end: 0;
+}
+
+.case-by-case.bonus-manager .window-content,
+.case-by-case.bonus-config .window-content {
+  padding: 0;
+  color: var(--cb-text);
+  background: var(--cb-bg);
+  font-family: var(--cb-font-body);
+}
+/* The window is the form, so reset the default gaps. */
+.case-by-case.bonus-config.standard-form { gap: 0; }
+.case-by-case.bonus-config .window-content.standard-form,
+.case-by-case.bonus-config.standard-form .window-content,
+.case-by-case.bonus-config .window-content {
+  padding: 0;
+  gap: 0;
+}
+
+/* ---- Master-detail workbench layout --------------------------
+  Grid puts the list on the left and stacked editor parts on the right. */
+.case-by-case.bonus-workbench .window-content {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) 1fr;
+  /* Rows: tabs, active body, footer. Explicit placement keeps hidden parts from shifting layout. */
+  grid-template-rows: auto 1fr auto;
+  height: 100%;
+  min-height: 0;
+}
+.case-by-case.bonus-workbench .window-content > [data-application-part="list"] {
+  grid-column: 1;
+  grid-row: 1 / -1;
+  min-height: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--cb-fieldset-border);
+}
+.case-by-case.bonus-workbench .window-content > [data-application-part="empty"] {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  min-width: 0;
+  min-height: 0;
+  /* Leave room for the title above this column. */
+  padding-top: calc(var(--font-size-24) + 6px);
+}
+.case-by-case.bonus-workbench .window-content > [data-application-part="tabs"] {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  padding-top: calc(var(--font-size-24) + 6px);
+}
+.case-by-case.bonus-workbench .window-content > [data-application-part="details"],
+.case-by-case.bonus-workbench .window-content > [data-application-part="filters"],
+.case-by-case.bonus-workbench .window-content > [data-application-part="target"],
+.case-by-case.bonus-workbench .window-content > [data-application-part="foe"],
+.case-by-case.bonus-workbench .window-content > [data-application-part="aura"] {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  min-height: 0;
+}
+.case-by-case.bonus-workbench .window-content > [data-application-part="footer"] {
+  grid-column: 2;
+  grid-row: 3;
+  min-width: 0;
+  position: static;
+  align-self: end;
+}
+
+/* Swap the empty pane and editor parts with the has-selection class. */
+.case-by-case.bonus-workbench .window-content > [data-application-part="empty"] { display: none; }
+.case-by-case.bonus-workbench:not(.has-selection) .window-content > [data-application-part="empty"] {
+  display: flex;
+}
+.case-by-case.bonus-workbench:not(.has-selection) .window-content > [data-application-part="tabs"],
+.case-by-case.bonus-workbench:not(.has-selection) .window-content > [data-application-part="footer"] {
+  display: none;
+}
+.case-by-case.bonus-workbench:not(.has-selection) .window-content > [data-application-part="details"],
+.case-by-case.bonus-workbench:not(.has-selection) .window-content > [data-application-part="filters"],
+.case-by-case.bonus-workbench:not(.has-selection) .window-content > [data-application-part="target"],
+.case-by-case.bonus-workbench:not(.has-selection) .window-content > [data-application-part="foe"],
+.case-by-case.bonus-workbench:not(.has-selection) .window-content > [data-application-part="aura"] {
+  display: none !important;
+}
+
+/* Selected row highlight in the list pane. */
+.case-by-case-manager .bonus-row.case-by-case-row-selected {
+  border-left-color: var(--cb-gold);
+  box-shadow: 0 0 6px var(--cb-gold);
+}
+.case-by-case-manager .child-row.case-by-case-row-selected {
+  background: var(--cb-overlay-strong);
+  border-radius: 3px;
+}
+
+/* Empty detail-pane placeholder. Visibility is toggled above. */
+.case-by-case-empty-pane {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 100%;
+  min-height: 300px;
+  padding: 24px;
+  text-align: center;
+  color: var(--cb-text-muted);
+}
+.case-by-case-empty-pane i { font-size: 2rem; color: var(--cb-gold); opacity: 0.6; }
+.case-by-case-empty-pane p { max-width: 260px; margin: 0; }
+
+/* Footer grows a Cancel button alongside Save in the workbench. */
+.case-by-case.bonus-workbench footer.form-footer { display: flex; gap: 8px; }
+.case-by-case.bonus-workbench footer.form-footer button { width: auto; flex: 1 1 0; }
+
+/* Thin scrollbars. */
+.case-by-case ::-webkit-scrollbar { width: 6px; height: 6px; }
+.case-by-case ::-webkit-scrollbar-thumb {
+  background: var(--cb-gold);
+  border-radius: 3px;
+  border: none;
+}
+.case-by-case ::-webkit-scrollbar-track { background: transparent; }
+
+/* Bonus Manager. */
+.case-by-case-manager { display: flex; flex-direction: column; min-height: 60px; }
+
+.case-by-case-manager .manager-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 10px 12px;
+  margin: 0;
+}
+.case-by-case-manager .header-btns { display: flex; align-items: center; gap: 6px; width: 100%; }
+
+/* Header button sizing override for the merged standard-form workbench layout. */
+.case-by-case-manager .add-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex: 1 1 0;
+  min-width: 0;
+  font-family: var(--cb-font-head);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 0.72em;
+  font-weight: bold;
+  height: 24px;
+  line-height: 1;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: 4px;
+  border: 1px solid var(--cb-fieldset-border);
+  background: var(--cb-card-bg);
+  color: var(--cb-text);
+  cursor: pointer;
+  box-shadow: 0 0 6px var(--cb-shadow);
+  transition: box-shadow 0.15s ease, color 0.15s ease;
+}
+.case-by-case-manager .add-btn:hover { box-shadow: 0 0 6px var(--cb-gold); color: var(--cb-gold); }
+.case-by-case-manager .add-btn.ghost { color: var(--cb-text-muted); }
+.case-by-case-manager .add-btn.ghost:hover { color: var(--cb-gold); }
+
+.case-by-case-manager .empty-notice {
+  padding: 24px 20px;
+  text-align: center;
+  color: var(--cb-text-muted);
+  font-style: italic;
+}
+
+/* Bonus list cards. */
+.case-by-case-manager .bonus-list {
+  list-style: none;
+  margin: 0;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.case-by-case-manager .bonus-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--cb-fieldset-border);
+  border-left: 3px solid var(--cb-gold);
+  border-radius: 4px;
+  background: var(--cb-card-bg);
+  box-shadow: 0 0 4px var(--cb-shadow);
+  transition: box-shadow 0.12s ease, border-color 0.12s ease;
+}
+.case-by-case-manager .bonus-row:hover { box-shadow: 0 0 8px var(--cb-gold); }
+.case-by-case-manager .bonus-row.is-group { border-left-color: var(--cb-blue); }
+.case-by-case-manager .bonus-row.bonus-disabled {
+  opacity: 0.5;
+  border-left-color: var(--cb-fieldset-border);
+}
+.case-by-case-manager .bonus-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+}
+
+/* Nested sub-bonuses. */
+.case-by-case-manager .child-list {
+  list-style: none;
+  margin: 0 0 0 6px;
+  padding: 4px 0 0 8px;
+  border-left: 2px dotted var(--cb-fieldset-border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.case-by-case-manager .child-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.12s ease;
+}
+.case-by-case-manager .child-row:hover { background: var(--cb-overlay); }
+.case-by-case-manager .child-name {
+  font-size: 0.8em;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.case-by-case-manager .tag.child-type {
+  background: transparent;
+  border: 1px solid var(--cb-fieldset-border);
+  color: var(--cb-text-muted);
+  font-size: 0.62em;
+}
+.case-by-case-manager .child-controls { margin-left: auto; display: flex; gap: 2px; }
+.case-by-case-manager .child-controls button {
+  background: none; border: none; cursor: pointer; padding: 2px 4px;
+  border-radius: 3px; font-size: 0.74em; color: var(--cb-text-muted);
+}
+.case-by-case-manager .child-controls button:hover { background: var(--cb-overlay-strong); color: var(--cb-text); }
+.case-by-case-manager .child-controls button.danger:hover { color: #ed1c24; }
+.case-by-case-manager .add-sub-btn {
+  background: none;
+  border: 1px dashed var(--cb-fieldset-border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--cb-font-head);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 0.66em;
+  font-weight: bold;
+  color: var(--cb-text-muted);
+  padding: 3px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.case-by-case-manager .add-sub-btn:hover { border-color: var(--cb-gold); color: var(--cb-gold); }
+
+/* Badges */
+.case-by-case-manager .tag.group { background: var(--cb-blue); }
+.case-by-case-manager .tag.group i { font-size: 0.85em; }
+.case-by-case-manager .tag.timing {
+  background: transparent;
+  border: 1px solid var(--cb-blue);
+  color: var(--cb-blue);
+  text-transform: none;
+}
+
+.case-by-case-manager .bonus-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.case-by-case-manager .bonus-name {
+  font-family: var(--cb-font-slab);
+  font-weight: bold;
+  font-size: 0.86em;
+  white-space: nowrap;
+  color: var(--cb-text);
+}
+.case-by-case-manager .bonus-formula {
+  font-size: 0.76em;
+  background: var(--cb-overlay);
+  border-radius: 3px;
+  padding: 1px 6px;
+  color: var(--cb-text-muted);
+  white-space: nowrap;
+}
+.case-by-case-manager .tag {
+  font-family: var(--cb-font-head);
+  font-size: 0.68em;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: var(--cb-blue);
+  color: #fff;
+  white-space: nowrap;
+}
+.case-by-case-manager .tag.aura { background: var(--cb-gold); color: #000; }
+.case-by-case-manager .tag.aura i { font-size: 0.85em; }
+.case-by-case-manager .tag.optional {
+  background: transparent;
+  border: 1px solid var(--cb-blue);
+  color: var(--cb-blue);
+}
+.case-by-case-manager .tag.stack {
+  background: transparent;
+  border: 1px solid var(--cb-fieldset-border);
+  color: var(--cb-text-muted);
+}
+.case-by-case-manager .tag.stack i { font-size: 0.85em; }
+
+.case-by-case-manager .bonus-controls { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.case-by-case-manager .bonus-controls button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 3px 5px;
+  border-radius: 3px;
+  font-size: 0.82em;
+  color: var(--cb-text-muted);
+  transition: all 0.12s ease;
+}
+.case-by-case-manager .bonus-controls button:hover { background: var(--cb-overlay-strong); color: var(--cb-text); }
+.case-by-case-manager .bonus-controls button.danger:hover { color: #ed1c24; }
+.case-by-case-manager .bonus-controls .toggle-btn { font-size: 1.05em; }
+.case-by-case-manager .bonus-controls .toggle-btn.active { color: var(--cb-gold); }
+.case-by-case-manager .bonus-controls .toggle-btn:not(.active) { color: var(--cb-text-muted); }
+.case-by-case-manager .bonus-controls .radius-eye.active { color: var(--cb-gold); }
+.case-by-case-manager .bonus-controls .radius-eye:not(.active) { color: var(--cb-text-muted); }
+.case-by-case-manager .bonus-controls .opt-toggle.active { color: var(--cb-blue); }
+.case-by-case-manager .bonus-controls .opt-toggle:not(.active) { color: var(--cb-text-muted); }
+
+/* Add/edit sub-bonus dialog */
+.case-by-case-child-form { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
+.case-by-case-child-form .form-group { display: flex; flex-direction: column; gap: 3px; }
+.case-by-case-child-form label { font-weight: bold; font-size: 0.85em; }
+
+/* BonusConfig (dnd5e-like tabs + fieldsets). */
+
+/* Tab navigation. */
+.case-by-case.bonus-config nav.sheet-tabs {
+  display: flex !important;
+  align-items: start;
+  gap: 0;
+  padding: 0;
+  margin: 0 0 8px;
+}
+.case-by-case.bonus-config nav.sheet-tabs > [data-tab] {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0;
+  line-height: 1;
+  font-family: var(--cb-font-head);
+  font-size: var(--font-size-13);
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  white-space: nowrap;
+  color: var(--cb-text-muted);
+  border: none;
+  cursor: pointer;
+  transition: color 0.12s ease;
+}
+.case-by-case.bonus-config nav.sheet-tabs > [data-tab] > :is(span, label) {
+  padding-bottom: 1px;
+  border-bottom: 3px solid transparent;
+}
+/* Icon sits left of label. */
+.case-by-case.bonus-config nav.sheet-tabs > [data-tab] i {
+  font-size: 0.9em;
+  color: inherit;
+}
+.case-by-case.bonus-config nav.sheet-tabs > [data-tab]:hover { color: var(--cb-text); }
+.case-by-case.bonus-config nav.sheet-tabs > [data-tab].active {
+  color: var(--cb-text);
+}
+.case-by-case.bonus-config nav.sheet-tabs > [data-tab].active > :is(span, label) {
+  border-bottom-color: var(--cb-gold);
+}
+/* Active tab icon tint. */
+.case-by-case.bonus-config nav.sheet-tabs > [data-tab].active i { color: var(--cb-gold); }
+/* Disable Target tab for non-targetable types. */
+.case-by-case.bonus-config[data-targetable="false"] nav.sheet-tabs > [data-tab="foe"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.case-by-case.bonus-config[data-targetable="false"] nav.sheet-tabs > [data-tab="foe"]:hover {
+  color: var(--cb-text-muted);
+}
+/* Disable Filters tab for saveDC. */
+.case-by-case.bonus-config[data-rolltype="saveDC"] nav.sheet-tabs > [data-tab="filters"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.case-by-case.bonus-config[data-rolltype="saveDC"] nav.sheet-tabs > [data-tab="filters"]:hover {
+  color: var(--cb-text-muted);
+}
+/* Disable Aura for saveDC even before the next full render. */
+.case-by-case.bonus-config[data-rolltype="saveDC"] nav.sheet-tabs > [data-tab="aura"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.case-by-case.bonus-config[data-rolltype="saveDC"] nav.sheet-tabs > [data-tab="aura"]:hover {
+  color: var(--cb-text-muted);
+}
+
+/* ---- Tab content -------------------------------------------- */
+.case-by-case.bonus-config .tab { display: none; }
+.case-by-case.bonus-config .tab.active {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0 14px 14px;
+  border: none;
+  background: none;
+  overflow-y: auto;
+  max-height: 62vh;
+}
+
+/* Fieldsets + legends. */
+.case-by-case.bonus-config fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 4px;
+  border: 1px solid var(--cb-fieldset-border);
+  margin: 0;
+  padding: 10px 12px 12px;
+}
+.case-by-case.bonus-config fieldset > legend {
+  text-transform: uppercase;
+  font-weight: bold;
+  font-size: var(--font-size-11);
+  letter-spacing: 0.05em;
+  color: var(--cb-legend-color);
+  font-family: var(--cb-font-head);
+  padding: 0 6px;
+}
+
+/* Form rows: label left, control right, hint full-width below. */
+.case-by-case.bonus-config .tab .form-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 2px;
+  margin: 0;
+}
+.case-by-case.bonus-config .tab .form-group > label {
+  flex: 2 2 0;
+  font-family: var(--cb-font-slab);
+  font-weight: bold;
+  font-size: var(--font-size-12);
+  color: var(--cb-text);
+  text-align: left;
+}
+.case-by-case.bonus-config .tab .form-group > select,
+.case-by-case.bonus-config .tab .form-group > input:not([type="color"]) {
+  flex: 3 3 0;
+  min-width: 0;
+}
+/* Hint row stays full-width below controls. */
+.case-by-case.bonus-config .tab .form-group > .hint {
+  flex: 1 0 100%;
+  text-align: left;
+}
+
+/* Inputs: dark card-coloured fields with a gold focus/hover glow. */
+.case-by-case.bonus-config input[type="text"],
+.case-by-case.bonus-config input[type="number"],
+.case-by-case.bonus-config input[type="search"],
+.case-by-case.bonus-config textarea,
+.case-by-case.bonus-config select {
+  color: var(--cb-text);
+  background: var(--cb-input-bg);
+  border: 1px solid var(--cb-input-border);
+  border-radius: 3px;
+  height: var(--cb-field-height);
+  padding: 0 6px;
+  font-size: var(--font-size-13);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.case-by-case.bonus-config textarea { height: unset; padding: 6px; }
+.case-by-case.bonus-config input:enabled:hover,
+.case-by-case.bonus-config input:enabled:focus,
+.case-by-case.bonus-config select:enabled:hover,
+.case-by-case.bonus-config select:enabled:focus,
+.case-by-case.bonus-config textarea:enabled:hover,
+.case-by-case.bonus-config textarea:enabled:focus {
+  box-shadow: 0 0 6px var(--cb-gold);
+  outline: none;
+}
+.case-by-case.bonus-config input::placeholder { color: var(--cb-text-tertiary); opacity: 1; }
+.case-by-case.bonus-config select option { color: var(--cb-option-text); background: var(--cb-option-bg); }
+.case-by-case.bonus-config input[type="color"] {
+  width: 100%; min-width: 44px; padding: 0; cursor: pointer;
+  border: 1px solid var(--cb-input-border); border-radius: 3px;
+  height: var(--cb-field-height);
+  /* Paint actual input background from chosen color. */
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Hint text style. */
+.case-by-case.bonus-config .hint { font-size: var(--font-size-11); color: var(--cb-text-muted); margin: 2px 0 0; line-height: 16px; text-align: left; }
+.case-by-case.bonus-config .hint code {
+  font-size: 0.95em; background: var(--cb-overlay); padding: 0 3px; border-radius: 3px;
+}
+
+/* Per-field help icon tooltip. */
+.case-by-case.bonus-config .case-by-case-help {
+  font-size: 0.85em;
+  color: var(--cb-text-muted);
+  margin-left: 5px;
+  cursor: help;
+  transition: color 0.15s ease;
+}
+.case-by-case.bonus-config .case-by-case-help:hover { color: var(--cb-gold); }
+
+/* Note callouts for inline warnings/info. */
+.case-by-case.bonus-config .case-by-case-note {
+  position: relative;
+  margin: 0;
+  border-radius: 4px;
+  border: 1px solid var(--cb-note-color, cornflowerblue);
+  padding: 8px 10px 8px 16px;
+  background: color-mix(in oklab, var(--cb-note-color, cornflowerblue), transparent 85%);
+  font-size: var(--font-size-12);
+  line-height: 1.4;
+  color: var(--cb-text);
+}
+.case-by-case.bonus-config .case-by-case-note.warn { --cb-note-color: #9b6903; }
+.case-by-case.bonus-config .case-by-case-note strong,
+.case-by-case.bonus-config .case-by-case-note em { color: var(--cb-text); }
+
+/* Toggle rows: force grid layout over generic form-group rule. */
+.case-by-case.bonus-config .tab .form-group.case-by-case-toggle-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 10px;
+  padding: 0;
+}
+.case-by-case.bonus-config .case-by-case-toggle-row > label { align-self: center; }
+.case-by-case.bonus-config .case-by-case-toggle-row .hint { grid-column: 1 / -1; }
+.case-by-case.bonus-config .case-by-case-toggle {
+  justify-self: end;
+  grid-row: 1;
+  grid-column: 2;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--cb-toggle-off);
+  --fa-secondary-opacity: 0.5;
+  transition: color 0.15s ease, filter 0.15s ease, text-shadow 0.15s ease;
+}
+.case-by-case.bonus-config .case-by-case-toggle.fa-toggle-on { color: var(--cb-gold); filter: brightness(1.05); --fa-secondary-opacity: 0.6; }
+.case-by-case.bonus-config .case-by-case-toggle:hover {
+  filter: brightness(1.3);
+  text-shadow: 0 0 5px var(--cb-gold);
+}
+
+/* Locked toggle row (currently ineligible state). */
+.case-by-case.bonus-config .case-by-case-toggle-row.case-by-case-row-locked { opacity: 0.5; }
+.case-by-case.bonus-config .case-by-case-toggle-row.case-by-case-row-locked .case-by-case-toggle {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ---- Collapsible filter rows -------------------------------- */
+.case-by-case.bonus-config .case-by-case-filter {
+  border: none;
+  border-radius: 0;
+  background: none;
+}
+.case-by-case.bonus-config .case-by-case-filter + .case-by-case-filter { border-top: 1px dotted var(--cb-fieldset-border); padding-top: 4px; }
+/* Grey out filters impossible for current host item. */
+.case-by-case.bonus-config .case-by-case-filter.case-by-case-filter-locked { opacity: 0.45; }
+.case-by-case.bonus-config .case-by-case-filter.case-by-case-filter-locked .case-by-case-filter-enable { cursor: not-allowed; }
+.case-by-case.bonus-config .case-by-case-filter-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-family: var(--cb-font-slab);
+  font-size: var(--font-size-12);
+  font-weight: bold;
+  color: var(--cb-text);
+}
+/* Caret and title toggle open state without changing the enable checkbox. */
+.case-by-case.bonus-config .case-by-case-filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  user-select: none;
+}
+.case-by-case.bonus-config .case-by-case-filter-caret {
+  font-size: 0.7em;
+  color: var(--cb-text-muted);
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+.case-by-case.bonus-config .case-by-case-filter-title { flex: 1; text-align: left; }
+.case-by-case.bonus-config .case-by-case-filter-enable {
+  order: 3;
+  margin: 0 0 0 8px;
+  width: 15px;
+  height: 15px;
+  accent-color: var(--cb-gold);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+/* Gold highlight tracks whether the filter is ON, same as before. */
+.case-by-case.bonus-config .case-by-case-filter:has(.case-by-case-filter-enable:checked) .case-by-case-filter-title {
+  color: var(--cb-gold);
+}
+/* Caret rotation + body visibility now track the independent open/collapsed state instead. */
+.case-by-case.bonus-config .case-by-case-filter.case-by-case-filter-open .case-by-case-filter-caret {
+  transform: rotate(90deg);
+  color: var(--cb-gold);
+}
+.case-by-case.bonus-config .case-by-case-filter-body {
+  display: none;
+  padding: 2px 2px 8px;
+}
+.case-by-case.bonus-config .case-by-case-filter.case-by-case-filter-open .case-by-case-filter-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ---- Inline filter rows --------------------------------------
+  Small one-line filters stay in the header instead of using a collapsible body. */
+.case-by-case.bonus-config .case-by-case-filter-inline .case-by-case-filter-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 10px;
+}
+.case-by-case.bonus-config .case-by-case-filter-inline-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+.case-by-case.bonus-config .case-by-case-filter-inline-controls input[type="number"] { width: 52px; flex: 0 0 auto; }
+.case-by-case.bonus-config .case-by-case-filter-inline-controls input[type="text"] { flex: 1 1 auto; min-width: 60px; }
+.case-by-case.bonus-config .case-by-case-filter-inline-suffix { font-size: var(--font-size-11); color: var(--cb-text-muted); }
+.case-by-case.bonus-config .case-by-case-filter-inline .case-by-case-filter-enable { margin: 0 0 0 2px; }
+.case-by-case.bonus-config .case-by-case-filter-inline-sub { margin-top: 4px; }
+/* Grey out + disable the field(s) (and any sub-row, e.g. Must Be Active) while switched off. */
+.case-by-case.bonus-config .case-by-case-filter-inline:not(:has(.case-by-case-filter-enable:checked)) .case-by-case-filter-inline-controls input:not(.case-by-case-filter-enable),
+.case-by-case.bonus-config .case-by-case-filter-inline:not(:has(.case-by-case-filter-enable:checked)) .case-by-case-filter-inline-sub {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Scope-aware filter and fieldset visibility. :where() keeps the hide rule easy to override. */
+:where(.bonus-config[data-rolltype]:not([data-rolltype="all"]) :is(.case-by-case-filter, fieldset, .form-group)[data-scope]) { display: none; }
+.case-by-case.bonus-config[data-rolltype]            .form-group[data-scope~="any"],
+.case-by-case.bonus-config[data-rolltype="save"]      .form-group[data-scope~="save"],
+.case-by-case.bonus-config[data-rolltype="check"]     .form-group[data-scope~="check"],
+.case-by-case.bonus-config[data-rolltype="skill"]     .form-group[data-scope~="skill"],
+.case-by-case.bonus-config[data-rolltype="attack"]    .form-group[data-scope~="attack"],
+.case-by-case.bonus-config[data-rolltype="damage"]    .form-group[data-scope~="damage"],
+.case-by-case.bonus-config[data-rolltype="critRange"] .form-group[data-scope~="critRange"],
+.case-by-case.bonus-config[data-rolltype="heal"]      .form-group[data-scope~="heal"],
+.case-by-case.bonus-config[data-rolltype="temphp"]    .form-group[data-scope~="temphp"] {
+  display: flex;
+}
+.case-by-case.bonus-config[data-rolltype]            .case-by-case-filter[data-scope~="any"],
+.case-by-case.bonus-config[data-rolltype="save"]      .case-by-case-filter[data-scope~="save"],
+.case-by-case.bonus-config[data-rolltype="saveDC"]    .case-by-case-filter[data-scope~="saveDC"],
+.case-by-case.bonus-config[data-rolltype="check"]     .case-by-case-filter[data-scope~="check"],
+.case-by-case.bonus-config[data-rolltype="skill"]     .case-by-case-filter[data-scope~="skill"],
+.case-by-case.bonus-config[data-rolltype="attack"]    .case-by-case-filter[data-scope~="attack"],
+.case-by-case.bonus-config[data-rolltype="damage"]    .case-by-case-filter[data-scope~="damage"],
+.case-by-case.bonus-config[data-rolltype="critRange"] .case-by-case-filter[data-scope~="critRange"],
+.case-by-case.bonus-config[data-rolltype="advantage"] .case-by-case-filter[data-scope~="advantage"],
+.case-by-case.bonus-config[data-rolltype="disadvantage"] .case-by-case-filter[data-scope~="disadvantage"],
+.case-by-case.bonus-config[data-rolltype="heal"]      .case-by-case-filter[data-scope~="heal"],
+.case-by-case.bonus-config[data-rolltype="temphp"]    .case-by-case-filter[data-scope~="temphp"] {
+  display: block;
+}
+.case-by-case.bonus-config[data-rolltype]            fieldset[data-scope~="any"],
+.case-by-case.bonus-config[data-rolltype="save"]      fieldset[data-scope~="save"],
+.case-by-case.bonus-config[data-rolltype="saveDC"]    fieldset[data-scope~="saveDC"],
+.case-by-case.bonus-config[data-rolltype="check"]     fieldset[data-scope~="check"],
+.case-by-case.bonus-config[data-rolltype="skill"]     fieldset[data-scope~="skill"],
+.case-by-case.bonus-config[data-rolltype="attack"]    fieldset[data-scope~="attack"],
+.case-by-case.bonus-config[data-rolltype="damage"]    fieldset[data-scope~="damage"],
+.case-by-case.bonus-config[data-rolltype="critRange"] fieldset[data-scope~="critRange"],
+.case-by-case.bonus-config[data-rolltype="advantage"] fieldset[data-scope~="advantage"],
+.case-by-case.bonus-config[data-rolltype="disadvantage"] fieldset[data-scope~="disadvantage"],
+.case-by-case.bonus-config[data-rolltype="heal"]      fieldset[data-scope~="heal"],
+.case-by-case.bonus-config[data-rolltype="temphp"]    fieldset[data-scope~="temphp"] {
+  display: flex;
+}
+
+/* Swap the Bonus-Formula label/hint for the Critical Range type. */
+.case-by-case.bonus-config .case-by-case-when-crit,
+.case-by-case.bonus-config .case-by-case-when-dc { display: none; }
+.case-by-case.bonus-config[data-rolltype="critRange"] .case-by-case-when-default { display: none; }
+.case-by-case.bonus-config[data-rolltype="critRange"] .case-by-case-when-crit { display: revert; }
+.case-by-case.bonus-config[data-rolltype="saveDC"] .case-by-case-when-default { display: none; }
+.case-by-case.bonus-config[data-rolltype="saveDC"] .case-by-case-when-dc { display: revert; }
+
+/* Swap the "Grants Advantage"/"Grants Disadvantage" label to match the selected type. */
+.case-by-case.bonus-config .case-by-case-when-adv,
+.case-by-case.bonus-config .case-by-case-when-dis { display: none; }
+.case-by-case.bonus-config[data-rolltype="advantage"] .case-by-case-when-adv { display: revert; }
+.case-by-case.bonus-config[data-rolltype="disadvantage"] .case-by-case-when-dis { display: revert; }
+
+/* Hide formula row for dedicated advantage/disadvantage types. */
+.case-by-case.bonus-config[data-rolltype="advantage"] .case-by-case-formula-group,
+.case-by-case.bonus-config[data-rolltype="disadvantage"] .case-by-case-formula-group {
+  display: none;
+}
+
+/* rollKinds/extra d20/grants-toggle are advantage/disadvantage-only.
+  Selectors include .tab/.form-group for specificity against generic form-group rules. */
+.case-by-case.bonus-config .tab .case-by-case-roll-kinds,
+.case-by-case.bonus-config .tab .case-by-case-extra-dice {
+  display: none;
+}
+.case-by-case.bonus-config .tab .form-group.case-by-case-grants-toggle {
+  display: none;
+}
+.case-by-case.bonus-config[data-rolltype="advantage"] .tab .case-by-case-extra-dice,
+.case-by-case.bonus-config[data-rolltype="disadvantage"] .tab .case-by-case-extra-dice {
+  display: flex;
+}
+.case-by-case.bonus-config[data-rolltype="advantage"] .tab .case-by-case-grants-toggle,
+.case-by-case.bonus-config[data-rolltype="disadvantage"] .tab .case-by-case-grants-toggle {
+  display: grid;
+}
+/* Keep .case-by-case-roll-kinds block-level so checkbox alignment stays stable. */
+.case-by-case.bonus-config[data-rolltype="advantage"] .tab .case-by-case-roll-kinds,
+.case-by-case.bonus-config[data-rolltype="disadvantage"] .tab .case-by-case-roll-kinds {
+  display: block;
+}
+
+/* Hide mod-type row for fixed-simple types. */
+.case-by-case.bonus-config[data-rolltype="saveDC"]       .tab .case-by-case-modtype-group,
+.case-by-case.bonus-config[data-rolltype="critRange"]    .tab .case-by-case-modtype-group,
+.case-by-case.bonus-config[data-rolltype="advantage"]    .tab .case-by-case-modtype-group,
+.case-by-case.bonus-config[data-rolltype="disadvantage"] .tab .case-by-case-modtype-group {
+  display: none;
+}
+
+/* Swap formula label text by selected mod type. */
+.case-by-case.bonus-config .case-by-case-when-reroll,
+.case-by-case.bonus-config .case-by-case-when-minDie,
+.case-by-case.bonus-config .case-by-case-when-maxDie,
+.case-by-case.bonus-config .case-by-case-when-explode,
+.case-by-case.bonus-config .case-by-case-when-resize { display: none; }
+.case-by-case.bonus-config[data-modtype="reroll"]  .case-by-case-when-default,
+.case-by-case.bonus-config[data-modtype="minDie"]  .case-by-case-when-default,
+.case-by-case.bonus-config[data-modtype="maxDie"]  .case-by-case-when-default,
+.case-by-case.bonus-config[data-modtype="explode"] .case-by-case-when-default,
+.case-by-case.bonus-config[data-modtype="resize"]  .case-by-case-when-default { display: none; }
+.case-by-case.bonus-config[data-modtype="reroll"]  .case-by-case-when-reroll  { display: revert; }
+.case-by-case.bonus-config[data-modtype="minDie"]  .case-by-case-when-minDie  { display: revert; }
+.case-by-case.bonus-config[data-modtype="maxDie"]  .case-by-case-when-maxDie  { display: revert; }
+.case-by-case.bonus-config[data-modtype="explode"] .case-by-case-when-explode { display: revert; }
+.case-by-case.bonus-config[data-modtype="resize"]  .case-by-case-when-resize  { display: revert; }
+
+/* ---- Two-list transfer (Options <-> Filtered) ------------ */
+.case-by-case.bonus-config .case-by-case-transfer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.case-by-case.bonus-config .case-by-case-transfer-col {
+  display: flex;
+  flex-direction: column;
+  border: none;
+  background: none;
+}
+.case-by-case.bonus-config .case-by-case-transfer-head {
+  font-family: var(--cb-font-head);
+  font-size: var(--font-size-10);
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: left;
+  padding: 2px 0;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--cb-fieldset-border);
+  background: none;
+  color: var(--cb-text-muted);
+}
+.case-by-case.bonus-config .case-by-case-transfer-head i { font-size: 0.85em; color: var(--cb-gold); }
+.case-by-case.bonus-config .case-by-case-transfer-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-height: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.case-by-case.bonus-config .case-by-case-transfer-list li {
+  font-size: var(--font-size-11);
+  padding: 2px 7px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+/* Available column: hover suggests "add" */
+.case-by-case.bonus-config [data-list="available"] li:hover {
+  background: color-mix(in oklab, var(--cb-gold), transparent 85%);
+  border-color: var(--cb-gold);
+}
+.case-by-case.bonus-config [data-list="available"] li::before {
+  content: "\f067"; /* fa plus */
+  font-family: "Font Awesome 6 Pro", "Font Awesome 6 Free", "fontawesome";
+  font-weight: 900;
+  font-size: 0.8em;
+  opacity: 0;
+  color: var(--cb-gold);
+  transition: opacity 0.1s ease;
+}
+.case-by-case.bonus-config [data-list="available"] li:hover::before { opacity: 1; }
+/* Selected column: gold pills, hover suggests "remove" */
+.case-by-case.bonus-config [data-list="selected"] li {
+  background: var(--cb-gold);
+  border-color: var(--cb-gold);
+  color: #000;
+  font-weight: 600;
+}
+.case-by-case.bonus-config [data-list="selected"] li::before {
+  content: "\f068"; /* fa minus */
+  font-family: "Font Awesome 6 Pro", "Font Awesome 6 Free", "fontawesome";
+  font-weight: 900;
+  font-size: 0.8em;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+.case-by-case.bonus-config [data-list="selected"] li:hover { filter: brightness(1.15); }
+.case-by-case.bonus-config [data-list="selected"] li:hover::before { opacity: 0.85; }
+
+/* Spell level pair */
+.case-by-case.bonus-config .inline-pair { display: flex; gap: 14px; font-size: 0.85em; }
+.case-by-case.bonus-config .inline-pair label { display: flex; align-items: center; gap: 5px; color: var(--cb-text); }
+
+/* Aura tab */
+.case-by-case.bonus-config .case-by-case-aura-fields { display: flex; flex-direction: column; gap: 10px; }
+.case-by-case.bonus-config .aura-grid {
+  display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end;
+}
+/* Compact aura grid uses label-top rows. */
+.case-by-case.bonus-config .aura-grid .form-group {
+  flex-direction: column;
+  align-items: stretch;
+  margin: 0;
+}
+.case-by-case.bonus-config .aura-grid .form-group > label { flex: none; }
+.case-by-case.bonus-config .aura-grid input,
+.case-by-case.bonus-config .aura-grid select {
+  flex: none;
+  height: var(--cb-field-height);
+  min-height: var(--cb-field-height);
+  box-sizing: border-box;
+  margin: 0;
+  line-height: normal;
+}
+
+/* Hide aura sub-fields until the aura is enabled; reactive via :has() on the toggle */
+.case-by-case.bonus-config .tab[data-tab="aura"]:has(.case-by-case-toggle[data-field="aura-enabled"].fa-toggle-off) .case-by-case-aura-fields {
+  display: none;
+}
+
+/* Footer: dnd5e's uppercase-bold button, gold glow on hover. */
+.case-by-case.bonus-config .form-footer {
+  padding: 10px 14px;
+  border-top: 1px solid var(--cb-fieldset-border);
+}
+.case-by-case.bonus-config .form-footer button {
+  width: 100%;
+  font-family: var(--cb-font-head);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: bold;
+  font-size: var(--font-size-14);
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid var(--cb-fieldset-border);
+  background: var(--cb-card-bg);
+  color: var(--cb-text);
+  box-shadow: 0 0 8px var(--cb-shadow);
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, color 0.15s ease;
+}
+.case-by-case.bonus-config .form-footer button:hover { box-shadow: 0 0 6px var(--cb-gold); color: var(--cb-gold); }
+
+/* Optional bonus dialog. */
+/* Explicit text color for generic Foundry dialog context. */
+.case-by-case-opt-dialog { color: var(--color-text-dark-1, #1d1813); }
+.theme-dark .case-by-case-opt-dialog { color: var(--color-text-light-1, #e9e4d6); }
+.case-by-case-opt-dialog strong { color: inherit; }
+.case-by-case-opt-dialog p { margin: 0 0 6px; font-size: 0.9em; }
+.case-by-case-opt-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 0; font-size: 0.88em;
+}
+.case-by-case-opt-row code {
+  font-size: 0.82em; color: inherit; background: rgba(127, 127, 127, 0.22); padding: 1px 5px; border-radius: 3px;
+}
+/* Row shown due to current target filter match. */
+.case-by-case-opt-foe {
+  font-size: 0.68em;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 1px 6px;
+  border-radius: 8px;
+  border: 1px solid cornflowerblue;
+  color: cornflowerblue;
+  margin-left: auto;
+}
+/* Amount stepper under a consumption-enabled optional row. */
+.case-by-case-opt-consume {
+  padding: 0 0 6px 24px;
+  font-size: 0.82em;
+}
+.case-by-case-opt-consume label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.case-by-case-opt-consume input[type="number"] {
+  width: 56px;
+}
+/* Consumption cost the actor can't currently afford; the row's own checkbox starts unchecked. */
+.case-by-case-opt-consume.case-by-case-opt-unaffordable {
+  color: #b5433a;
+  font-style: italic;
+}
+
+/* @ref autocomplete floating list (appended to body). */
+.case-by-case-autocomplete-list {
+  position: fixed;
+  z-index: 100000;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--cb-card-bg);
+  border: 1px solid var(--cb-border);
+  border-radius: 4px;
+  box-shadow: 0 4px 14px var(--cb-shadow);
+  font-family: var(--cb-font-body);
+}
+.case-by-case-autocomplete-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.case-by-case-autocomplete-item code {
+  color: var(--cb-gold);
+  font-size: 0.85em;
+  flex: 0 0 auto;
+}
+.case-by-case-autocomplete-item span {
+  color: var(--cb-text-muted);
+  font-size: 0.82em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.case-by-case-autocomplete-item.active,
+.case-by-case-autocomplete-item:hover {
+  background: var(--cb-overlay-strong);
+}
+.case-by-case-autocomplete-item.active code,
+.case-by-case-autocomplete-item:hover code {
+  color: var(--cb-text);
+}
+
+/* Formula input row + preview + preset list. */
+.case-by-case-formula-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.case-by-case-formula-row input {
+  flex: 1 1 auto;
+}
+.case-by-case-preset-btn {
+  flex: 0 0 auto;
+  width: var(--cb-field-height);
+  background: var(--cb-input-bg);
+  border: 1px solid var(--cb-input-border);
+  border-radius: 3px;
+  color: var(--cb-gold);
+  cursor: pointer;
+  font-size: 0.95em;
+}
+.case-by-case-preset-btn:hover {
+  background: var(--cb-overlay-strong);
+  color: var(--cb-text);
+}
+
+.case-by-case-formula-preview {
+  font-style: italic;
+  min-height: 1.2em;
+}
+.case-by-case-formula-preview.case-by-case-preview-error {
+  color: #c0392b;
+  font-style: normal;
+}
+.case-by-case-theme-dark .case-by-case-formula-preview.case-by-case-preview-error {
+  color: #e57373;
+}
+
+.case-by-case-preset-list {
+  width: 340px;
+  max-height: 320px;
+}
+.case-by-case-preset-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 6px 8px;
+  white-space: normal;
+}
+.case-by-case-preset-item code {
+  color: var(--cb-gold);
+  font-size: 0.85em;
+}
+.case-by-case-preset-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.case-by-case-preset-label {
+  color: var(--cb-text);
+  font-size: 0.85em;
+  font-weight: 600;
+}
+.case-by-case-preset-hint {
+  color: var(--cb-text-muted);
+  font-size: 0.78em;
+  line-height: 1.3;
+}
+.case-by-case-preset-item:hover {
+  background: var(--cb-overlay-strong);
+}
+
+/* Resource consumption controls (category -> resource selects). */
+.case-by-case-consume-fieldset .hint { margin-top: 2px; }
+.case-by-case-consume-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--cb-border);
+}
+.case-by-case-resource-row {
+  display: flex;
+  gap: 8px;
+}
+.case-by-case-resource-row select {
+  flex: 1 1 50%;
+  min-width: 0;
+}
+select.case-by-case-resource-category,
+select.case-by-case-resource-target {
+  padding: 4px 6px;
+  background: var(--cb-input-bg);
+  border: 1px solid var(--cb-input-border);
+  border-radius: 3px;
+  color: var(--cb-text);
+  font-size: 0.9em;
+}
+select.case-by-case-resource-target:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.case-by-case-consume-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.case-by-case-consume-range input[type="number"] {
+  width: 70px;
+  flex: 0 0 auto;
+}

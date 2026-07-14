@@ -1,0 +1,101 @@
+<section class="tab{{#if tab.active}} active{{/if}}" data-group="{{tab.group}}" data-tab="{{tab.id}}">
+
+  {{#*inline "cbFilter"}}
+  <div class="case-by-case-filter" data-filter="{{key}}">
+    <div class="case-by-case-filter-head">
+      <input type="checkbox" class="case-by-case-filter-enable" {{#if enabled}}checked{{/if}} />
+      <label class="case-by-case-filter-toggle" data-action="toggleFilterOpen">
+        <i class="fa-solid fa-chevron-right case-by-case-filter-caret"></i>
+        <span class="case-by-case-filter-title">{{title}}</span>
+      </label>
+      {{#if hint}}<i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="{{hint}}"></i>{{/if}}
+    </div>
+    <div class="case-by-case-filter-body">
+      <div class="case-by-case-transfer" data-filter="{{key}}">
+        <div class="case-by-case-transfer-col">
+          <div class="case-by-case-transfer-head">Options</div>
+          <ul class="case-by-case-transfer-list" data-list="available">
+            {{#each available}}<li data-action="transferMove" data-value="{{value}}">{{label}}</li>{{/each}}
+          </ul>
+        </div>
+        <div class="case-by-case-transfer-col">
+          <div class="case-by-case-transfer-head"><i class="fa-solid fa-filter"></i> Filtered</div>
+          <ul class="case-by-case-transfer-list" data-list="selected">
+            {{#each selected}}<li data-action="transferMove" data-value="{{value}}">{{label}}</li>{{/each}}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  {{/inline}}
+
+  <p class="hint case-by-case-note">
+    These check the creature <strong>receiving</strong> this bonus. For an aura, the token in
+    range; otherwise the one rolling. No targeting needed. The bonus applies only if that
+    creature matches <strong>all</strong> of the enabled criteria below.
+  </p>
+
+  <fieldset>
+    <legend>State</legend>
+    {{> cbFilter target.conditions key="targetConditions" title="Has Condition" hint="The receiving creature is affected by one of these conditions."}}
+
+    <div class="case-by-case-filter case-by-case-filter-inline" data-filter="targetBloodied">
+      <div class="case-by-case-filter-head">
+        <span class="case-by-case-filter-title">HP Threshold <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="The receiving creature's current HP is at or below this percentage of its max. 50 is the traditional 'bloodied' threshold, but any percentage works."></i></span>
+        <div class="case-by-case-filter-inline-controls">
+          <input type="number" name="target-bloodied" value="{{target.bloodied}}" min="0" max="100" step="5" placeholder="50" />
+          <span class="case-by-case-filter-inline-suffix">%</span>
+          <input type="checkbox" class="case-by-case-filter-enable" {{#if target.bloodied}}checked{{/if}} />
+        </div>
+      </div>
+    </div>
+
+    <div class="case-by-case-filter case-by-case-filter-inline" data-filter="targetEffectName">
+      <div class="case-by-case-filter-head">
+        <span class="case-by-case-filter-title">Has Effect (by Name) <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="The receiving creature has an Active Effect whose name contains this text (case-insensitive)."></i></span>
+        <div class="case-by-case-filter-inline-controls">
+          <input type="text" name="target-effect-name" value="{{target.effectName.value}}" placeholder="e.g. Bless" />
+          <input type="checkbox" class="case-by-case-filter-enable" {{#if target.effectName.enabled}}checked{{/if}} />
+        </div>
+      </div>
+      <div class="case-by-case-filter-inline-sub form-group case-by-case-toggle-row" data-name="target-effect-active-only">
+        <label>Must Be Active <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="Only match while that effect is currently active. Turn off to also match a disabled or suppressed effect of that name."></i></label>
+        <i class="case-by-case-toggle fa-duotone {{#if target.effectName.activeOnly}}fa-toggle-on{{else}}fa-toggle-off{{/if}}" data-action="toggleSwitch" data-field="target-effect-active-only" role="switch" aria-checked="{{#if target.effectName.activeOnly}}true{{else}}false{{/if}}"></i>
+      </div>
+    </div>
+
+    <div class="case-by-case-filter case-by-case-filter-inline" data-filter="spellSlots">
+      <div class="case-by-case-filter-head">
+        <span class="case-by-case-filter-title">Available Spell Slots <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="Total spell slots the receiving creature currently has available."></i></span>
+        <div class="case-by-case-filter-inline-controls">
+          <span class="case-by-case-filter-inline-suffix">Min</span>
+          <input type="number" name="filter-min-slots" value="{{spellSlots.min}}" min="0" placeholder="-" />
+          <span class="case-by-case-filter-inline-suffix">Max</span>
+          <input type="number" name="filter-max-slots" value="{{spellSlots.max}}" min="0" placeholder="-" />
+          <input type="checkbox" class="case-by-case-filter-enable" {{#if spellSlots.enabled}}checked{{/if}} />
+        </div>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Creature</legend>
+    {{> cbFilter target.types key="targetTypes" title="Creature Type" hint="The receiving creature is one of these types (humanoid, undead, …)."}}
+    {{> cbFilter target.sizes key="targetSizes" title="Size" hint="The receiving creature is one of these sizes."}}
+    {{> cbFilter target.movement key="targetMovement" title="Has Movement" hint="The receiving creature has a non-zero speed of at least one of these types (e.g. fly)."}}
+    {{> cbFilter target.languages key="targetLanguages" title="Knows Language" hint="The receiving creature knows at least one of these languages."}}
+  </fieldset>
+
+  <fieldset>
+    <legend>Advanced</legend>
+    <div class="case-by-case-filter case-by-case-filter-inline" data-filter="comparison">
+      <div class="case-by-case-filter-head">
+        <span class="case-by-case-filter-title">Comparison <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="Applies only if this expression is true for the receiving creature's roll data. Supports <= >= < > == !=."></i></span>
+        <div class="case-by-case-filter-inline-controls">
+          <input type="text" name="comparison" value="{{comparison.value}}" placeholder="@attributes.hp.value <= @attributes.hp.max / 2" />
+          <input type="checkbox" class="case-by-case-filter-enable" {{#if comparison.enabled}}checked{{/if}} />
+        </div>
+      </div>
+    </div>
+  </fieldset>
+</section>

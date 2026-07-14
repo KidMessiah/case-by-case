@@ -1,0 +1,84 @@
+<section class="tab{{#if tab.active}} active{{/if}}" data-group="{{tab.group}}" data-tab="{{tab.id}}">
+
+  {{#*inline "cbFilter"}}
+  <div class="case-by-case-filter" data-filter="{{key}}">
+    <div class="case-by-case-filter-head">
+      <input type="checkbox" class="case-by-case-filter-enable" {{#if enabled}}checked{{/if}} />
+      <label class="case-by-case-filter-toggle" data-action="toggleFilterOpen">
+        <i class="fa-solid fa-chevron-right case-by-case-filter-caret"></i>
+        <span class="case-by-case-filter-title">{{title}}</span>
+      </label>
+      {{#if hint}}<i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="{{hint}}"></i>{{/if}}
+    </div>
+    <div class="case-by-case-filter-body">
+      <div class="case-by-case-transfer" data-filter="{{key}}">
+        <div class="case-by-case-transfer-col">
+          <div class="case-by-case-transfer-head">Options</div>
+          <ul class="case-by-case-transfer-list" data-list="available">
+            {{#each available}}<li data-action="transferMove" data-value="{{value}}">{{label}}</li>{{/each}}
+          </ul>
+        </div>
+        <div class="case-by-case-transfer-col">
+          <div class="case-by-case-transfer-head"><i class="fa-solid fa-filter"></i> Filtered</div>
+          <ul class="case-by-case-transfer-list" data-list="selected">
+            {{#each selected}}<li data-action="transferMove" data-value="{{value}}">{{label}}</li>{{/each}}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  {{/inline}}
+
+  <div class="case-by-case-note warn">
+    <strong>Target filters</strong> check the creature you're rolling <em>against</em>: its type, size, conditions, distance, and so on. The target is only known at the moment you roll and can differ per creature, so these are evaluated <strong>at roll time</strong> and are <strong>never written to your character sheet</strong>. With multiple targets, each is checked and the bonus applies per target.
+  </div>
+
+  <fieldset>
+    <legend>State</legend>
+    {{> cbFilter foe.conditions key="foeConditions" title="Has Condition" hint="The target is affected by one of these conditions (prone, frightened, …)."}}
+
+    <div class="case-by-case-filter case-by-case-filter-inline" data-filter="foeBloodied">
+      <div class="case-by-case-filter-head">
+        <span class="case-by-case-filter-title">HP Threshold <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="The target's current HP is at or below this percentage of its max. 50 is the traditional 'bloodied' threshold, but any percentage works."></i></span>
+        <div class="case-by-case-filter-inline-controls">
+          <input type="number" name="foe-bloodied" value="{{foe.bloodied}}" min="0" max="100" step="5" placeholder="50" />
+          <span class="case-by-case-filter-inline-suffix">%</span>
+          <input type="checkbox" class="case-by-case-filter-enable" {{#if foe.bloodied}}checked{{/if}} />
+        </div>
+      </div>
+    </div>
+
+    <div class="case-by-case-filter case-by-case-filter-inline" data-filter="foeEffectName">
+      <div class="case-by-case-filter-head">
+        <span class="case-by-case-filter-title">Has Effect (by Name) <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="The target has an Active Effect whose name contains this text (case-insensitive)."></i></span>
+        <div class="case-by-case-filter-inline-controls">
+          <input type="text" name="foe-effect-name" value="{{foe.effectName.value}}" placeholder="e.g. Bless" />
+          <input type="checkbox" class="case-by-case-filter-enable" {{#if foe.effectName.enabled}}checked{{/if}} />
+        </div>
+      </div>
+      <div class="case-by-case-filter-inline-sub form-group case-by-case-toggle-row" data-name="foe-effect-active-only">
+        <label>Must Be Active <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="Only match while that effect is currently active. Turn off to also match a disabled or suppressed effect of that name."></i></label>
+        <i class="case-by-case-toggle fa-duotone {{#if foe.effectName.activeOnly}}fa-toggle-on{{else}}fa-toggle-off{{/if}}" data-action="toggleSwitch" data-field="foe-effect-active-only" role="switch" aria-checked="{{#if foe.effectName.activeOnly}}true{{else}}false{{/if}}"></i>
+      </div>
+    </div>
+
+    <div class="case-by-case-filter case-by-case-filter-inline" data-filter="foeWithin">
+      <div class="case-by-case-filter-head">
+        <span class="case-by-case-filter-title">Within Range <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="The target is within this many feet of you."></i></span>
+        <div class="case-by-case-filter-inline-controls">
+          <input type="number" name="foe-within" value="{{foe.within}}" min="0" step="5" placeholder="-" />
+          <span class="case-by-case-filter-inline-suffix">ft</span>
+          <input type="checkbox" class="case-by-case-filter-enable" {{#if foe.within}}checked{{/if}} />
+        </div>
+      </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Creature</legend>
+    {{> cbFilter foe.types key="foeTypes" title="Creature Type" hint="The target is one of these types (humanoid, undead, …)."}}
+    {{> cbFilter foe.sizes key="foeSizes" title="Size" hint="The target is one of these sizes."}}
+    {{> cbFilter foe.movement key="foeMovement" title="Has Movement" hint="The target has a non-zero speed of at least one of these types (e.g. fly)."}}
+    {{> cbFilter foe.languages key="foeLanguages" title="Knows Language" hint="The target knows at least one of these languages."}}
+  </fieldset>
+</section>

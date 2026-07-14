@@ -1,0 +1,87 @@
+<div class="case-by-case-manager">
+  <header class="manager-header">
+    <div class="header-btns">
+      <button type="button" data-action="pasteBonus" class="add-btn ghost" title="Paste a bonus copied from another sheet">
+        <i class="fa-solid fa-paste"></i> Paste
+      </button>
+      <button type="button" data-action="addGroup" class="add-btn ghost" title="Add a multipart group (e.g. Great Weapon Master)">
+        <i class="fa-solid fa-layer-group"></i> Group
+      </button>
+      <button type="button" data-action="addBonus" class="add-btn">
+        <i class="fa-solid fa-plus"></i> Bonus
+      </button>
+    </div>
+  </header>
+
+  {{#if isEmpty}}
+    <p class="empty-notice">No bonuses yet. Add a <strong>Bonus</strong> or a multipart <strong>Group</strong>.</p>
+  {{else}}
+    <ul class="bonus-list">
+      {{#each bonuses}}
+      <li class="bonus-row {{#if isMultipart}}is-group{{/if}} {{#unless enabled}}bonus-disabled{{/unless}}" data-bonus-id="{{id}}">
+        <div class="bonus-head" data-action="editBonus">
+          <div class="bonus-info">
+            <span class="bonus-name">{{name}}</span>
+            {{#if isMultipart}}
+              <span class="tag group"><i class="fa-solid fa-layer-group"></i> group</span>
+              {{#if optional}}<span class="tag timing" title="When this group asks">{{timingLabel}}</span>{{/if}}
+            {{else}}
+              <span class="bonus-type tag">{{typeLabel}}</span>
+              {{#if auraLabel}}<span class="bonus-aura tag aura" title="Aura: {{auraDispositionLabel}}"><i class="fa-solid fa-circle" style="color:{{auraColor}}"></i> {{auraLabel}} · {{auraDispositionLabel}}</span>{{/if}}
+              {{#if stackTag}}<span class="tag stack" title="Stacking tag: won't stack with same-tag bonuses"><i class="fa-solid fa-tag"></i> {{stackTag}}</span>{{/if}}
+              <code class="bonus-formula">{{bonus}}</code>
+            {{/if}}
+          </div>
+          <div class="bonus-controls">
+            {{#unless isMultipart}}{{#unless isSaveDC}}
+            <button type="button" data-action="toggleOptional"
+                    class="opt-toggle {{#if optional}}active{{/if}}"
+                    title="{{#if optional}}{{#if foeFiltered}}Optional: only offered in the pre-roll dialog when your current target matches this bonus's Target filter (click to make automatic){{else}}Optional: prompts before the roll (click to make automatic){{/if}}{{else}}Automatic (click to make optional){{/if}}">
+              <i class="fa-solid {{#if optional}}fa-circle-question{{else}}fa-bolt{{/if}}"></i>
+            </button>
+            {{/unless}}{{/unless}}
+            {{#if isAura}}{{#if ../isActorDoc}}
+            <button type="button" data-action="toggleRadius"
+                    title="{{#if showRadius}}Radius shown on canvas (click to hide){{else}}Show this aura's radius on the canvas{{/if}}"
+                    class="radius-eye {{#if showRadius}}active{{/if}}">
+              <i class="fa-solid {{#if showRadius}}fa-eye{{else}}fa-eye-slash{{/if}}"></i>
+            </button>
+            {{/if}}{{/if}}
+            <button type="button" data-action="toggleBonus"
+                    title="{{#if enabled}}Enabled (click to disable){{else}}Disabled (click to enable){{/if}}"
+                    class="toggle-btn {{#if enabled}}active{{/if}}">
+              <i class="fa-solid {{#if enabled}}fa-toggle-on{{else}}fa-toggle-off{{/if}}"></i>
+            </button>
+            <button type="button" data-action="copyBonus" title="Copy: paste onto another sheet">
+              <i class="fa-solid fa-copy"></i>
+            </button>
+            <button type="button" data-action="deleteBonus" title="Delete" class="danger">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        </div>
+
+        {{#if isMultipart}}
+        <ul class="child-list">
+          {{#each children}}
+          <li class="child-row" data-child-id="{{id}}" data-action="editChild">
+            <span class="child-name">{{name}}</span>
+            <span class="tag child-type">{{typeLabel}}</span>
+            <code class="bonus-formula">{{bonus}}</code>
+            <span class="child-controls">
+              <button type="button" data-action="deleteChild" title="Delete" class="danger"><i class="fa-solid fa-trash"></i></button>
+            </span>
+          </li>
+          {{/each}}
+          <li class="child-add">
+            <button type="button" data-action="addChild" class="add-sub-btn">
+              <i class="fa-solid fa-plus"></i> Add sub-bonus
+            </button>
+          </li>
+        </ul>
+        {{/if}}
+      </li>
+      {{/each}}
+    </ul>
+  {{/if}}
+</div>

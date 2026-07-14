@@ -1,0 +1,76 @@
+<section class="tab{{#if tab.active}} active{{/if}}" data-group="{{tab.group}}" data-tab="{{tab.id}}">
+  <div class="case-by-case-note warn">
+    Any modification applied through an aura will not be reflected on the recipient's character sheet, only at time of roll.
+    This is a performance choice: rather than writing data to every nearby token and recalculating on every move, auras apply their modifiers at roll time only.
+  </div>
+
+  <fieldset>
+    <legend>Aura</legend>
+    <div class="form-group case-by-case-toggle-row" data-name="aura-enabled">
+      <label>Enable Aura <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="Project this bonus to nearby tokens at roll time. No effects are written to recipients."></i></label>
+      <i class="case-by-case-toggle fa-duotone {{#if aura.enabled}}fa-toggle-on{{else}}fa-toggle-off{{/if}}" data-action="toggleSwitch" data-field="aura-enabled" role="switch" aria-checked="{{#if aura.enabled}}true{{else}}false{{/if}}"></i>
+    </div>
+  </fieldset>
+
+  <div class="case-by-case-aura-fields">
+    <fieldset>
+      <legend>Settings</legend>
+      <div class="aura-grid">
+        <div class="form-group">
+          <label>Range (ft)</label>
+          <input type="number" name="aura-range" value="{{aura.range}}" min="0" step="5" />
+        </div>
+        <div class="form-group">
+          <label>Affects <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip='"Affects" only checks each token&#39;s disposition setting, not its actual relationship to the source: Secret and Neutral tokens count as the same side as the source (so "Allies" reaches them and "Enemies" doesn&#39;t), and two Hostile tokens count as allies of each other. A friendly source&#39;s "Enemies" aura will therefore also hit neutral bystanders standing nearby.'></i></label>
+          <select name="aura-disposition">
+            {{#each dispositionOptions}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Color</label>
+          <input type="color" name="aura-color" value="{{aura.color}}" />
+        </div>
+      </div>
+
+      <div class="form-group case-by-case-toggle-row" data-name="aura-self">
+        <label>Include Self <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="Also apply the bonus to the aura's owner."></i></label>
+        <i class="case-by-case-toggle fa-duotone {{#if aura.self}}fa-toggle-on{{else}}fa-toggle-off{{/if}}" data-action="toggleSwitch" data-field="aura-self" role="switch" aria-checked="{{#if aura.self}}true{{else}}false{{/if}}"></i>
+      </div>
+
+      <div class="form-group case-by-case-toggle-row" data-name="aura-consciousness">
+        <label>Requires Consciousness <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="Disable the aura while the source is unconscious or dead."></i></label>
+        <i class="case-by-case-toggle fa-duotone {{#if aura.requiresConsciousness}}fa-toggle-on{{else}}fa-toggle-off{{/if}}" data-action="toggleSwitch" data-field="aura-consciousness" role="switch" aria-checked="{{#if aura.requiresConsciousness}}true{{else}}false{{/if}}"></i>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Restrictions</legend>
+      <div class="case-by-case-filter" data-filter="blockedStatuses">
+        <div class="case-by-case-filter-head">
+          <input type="checkbox" class="case-by-case-filter-enable" {{#if blockedStatuses.enabled}}checked{{/if}} />
+          <label class="case-by-case-filter-toggle" data-action="toggleFilterOpen">
+            <i class="fa-solid fa-chevron-right case-by-case-filter-caret"></i>
+            <span class="case-by-case-filter-title">Disabled While Source Has</span>
+          </label>
+          <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="The aura switches off if the source has any of these conditions (e.g. incapacitated)."></i>
+        </div>
+        <div class="case-by-case-filter-body">
+          <div class="case-by-case-transfer" data-filter="blockedStatuses">
+            <div class="case-by-case-transfer-col">
+              <div class="case-by-case-transfer-head">Options</div>
+              <ul class="case-by-case-transfer-list" data-list="available">
+                {{#each blockedStatuses.available}}<li data-action="transferMove" data-value="{{value}}">{{label}}</li>{{/each}}
+              </ul>
+            </div>
+            <div class="case-by-case-transfer-col">
+              <div class="case-by-case-transfer-head"><i class="fa-solid fa-filter"></i> Filtered</div>
+              <ul class="case-by-case-transfer-list" data-list="selected">
+                {{#each blockedStatuses.selected}}<li data-action="transferMove" data-value="{{value}}">{{label}}</li>{{/each}}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+  </div>
+</section>

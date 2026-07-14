@@ -1,0 +1,74 @@
+<section class="tab{{#if tab.active}} active{{/if}}" data-group="{{tab.group}}" data-tab="{{tab.id}}">
+
+  {{#*inline "cbFilter"}}
+  <div class="case-by-case-filter" data-filter="{{key}}" data-scope="{{scope}}">
+    <div class="case-by-case-filter-head">
+      <input type="checkbox" class="case-by-case-filter-enable" {{#if enabled}}checked{{/if}} />
+      <label class="case-by-case-filter-toggle" data-action="toggleFilterOpen">
+        <i class="fa-solid fa-chevron-right case-by-case-filter-caret"></i>
+        <span class="case-by-case-filter-title">{{title}}</span>
+      </label>
+      {{#if hint}}<i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="{{hint}}"></i>{{/if}}
+    </div>
+    <div class="case-by-case-filter-body">
+      <div class="case-by-case-transfer" data-filter="{{key}}">
+        <div class="case-by-case-transfer-col">
+          <div class="case-by-case-transfer-head">Options</div>
+          <ul class="case-by-case-transfer-list" data-list="available">
+            {{#each available}}<li data-action="transferMove" data-value="{{value}}">{{label}}</li>{{/each}}
+          </ul>
+        </div>
+        <div class="case-by-case-transfer-col">
+          <div class="case-by-case-transfer-head"><i class="fa-solid fa-filter"></i> Filtered</div>
+          <ul class="case-by-case-transfer-list" data-list="selected">
+            {{#each selected}}<li data-action="transferMove" data-value="{{value}}">{{label}}</li>{{/each}}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  {{/inline}}
+
+  <p class="hint case-by-case-note">
+    Tick a filter to switch it on and reveal its options. Click an item to move it between
+    <strong>Options</strong> and <strong>Filtered</strong>. A filter that is off matches everything.
+    Filters that don't apply to this roll type are hidden.
+  </p>
+
+  <fieldset data-scope="save check skill attack damage critRange advantage disadvantage">
+    <legend>Roll</legend>
+    {{> cbFilter filters.abilities    key="abilities"    title="Abilities"            scope="save check advantage disadvantage" hint="Limit saves & ability checks to these abilities."}}
+    {{> cbFilter filters.skills       key="skills"       title="Skills"               scope="skill advantage disadvantage"}}
+    {{> cbFilter filters.attackModes  key="attackModes"  title="Attack / Spell Action" scope="attack damage critRange advantage disadvantage"}}
+
+    <div class="form-group" data-scope="save check skill">
+      <label>Proficiency <i class="fa-solid fa-circle-question case-by-case-help" data-tooltip="Only apply when the roller's proficiency in the specific ability/skill being rolled matches. Proficient = fully proficient or better (includes Expertise). Expertise = double proficiency only. Either = has any proficiency bonus at all, including half from Jack of All Trades / Remarkable Athlete. None = untrained. Leave on (any) to ignore proficiency entirely."></i></label>
+      <select name="filter-proficiency">
+        {{#each proficiencyOptions}}<option value="{{value}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}
+      </select>
+    </div>
+  </fieldset>
+
+  <fieldset data-scope="attack damage critRange heal temphp">
+    <legend>Item &amp; Spell</legend>
+    {{> cbFilter filters.itemTypes      key="itemTypes"      title="Item Types"      scope="attack damage critRange heal temphp"}}
+    {{> cbFilter filters.weaponProps    key="weaponProps"    title="Weapon Properties" scope="attack damage critRange" hint="Item is a weapon with at least one of these properties."}}
+    {{> cbFilter filters.spellSchools   key="spellSchools"   title="Spell Schools"   scope="attack damage critRange heal temphp"}}
+    {{> cbFilter filters.spellComponents key="spellComponents" title="Spell Components" scope="attack damage critRange heal temphp" hint="Spell has at least one of these components."}}
+    {{> cbFilter filters.damageTypes    key="damageTypes"    title="Damage Types"    scope="damage" hint="The activity deals at least one of these damage types."}}
+
+    <div class="case-by-case-filter case-by-case-filter-inline" data-filter="spellLevel" data-scope="attack damage critRange heal temphp">
+      <div class="case-by-case-filter-head">
+        <span class="case-by-case-filter-title">Spell Level</span>
+        <div class="case-by-case-filter-inline-controls">
+          <span class="case-by-case-filter-inline-suffix">Min</span>
+          <input type="number" name="filter-min-level" value="{{spellLevel.min}}" min="0" max="9" placeholder="-" />
+          <span class="case-by-case-filter-inline-suffix">Max</span>
+          <input type="number" name="filter-max-level" value="{{spellLevel.max}}" min="0" max="9" placeholder="-" />
+          <input type="checkbox" class="case-by-case-filter-enable" {{#if spellLevel.enabled}}checked{{/if}} />
+        </div>
+      </div>
+    </div>
+  </fieldset>
+
+</section>
