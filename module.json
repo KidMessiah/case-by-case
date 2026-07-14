@@ -2,7 +2,7 @@
   "id": "case-by-case",
   "title": "Case by Case",
   "description": "Roll-time conditional bonuses and auras for dnd5e v5.x / Foundry v13. Bonuses are injected at roll resolution. No Active Effects are written to recipient tokens on movement.",
-  "version": "0.1.0",
+  "version": "1.0",
   "authors": [{ "name": "Chris" }],
   "compatibility": {
     "minimum": "13",
@@ -13,10 +13,12 @@
       { "id": "dnd5e", "compatibility": { "minimum": "5.0.0" } }
     ],
     "requires": [
-      { "id": "lib-wrapper", "type": "module", "compatibility": { "minimum": "1.12.0" } }
+      { "id": "lib-wrapper", "type": "module", "compatibility": { "minimum": "1.12.0" } },
+      { "id": "midi-qol", "type": "module" }
     ],
     "recommends": [
-      { "id": "midi-qol", "type": "module" }
+      { "id": "automated-conditions-5e", "type": "module" },
+      { "id": "chris-premades", "type": "module" }
     ]
   },
   "esmodules": ["scripts/module.mjs"],
