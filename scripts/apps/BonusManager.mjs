@@ -482,7 +482,11 @@ export class BonusManager extends HandlebarsApplicationMixin(ApplicationV2) {
 
   async _preparePartContext(partId, context, options) {
     context = await super._preparePartContext(partId, context, options);
-    if (context.tabs?.[partId]) context.tab = context.tabs[partId];
+    // Always assign (even when falsy) -- Foundry reuses the same context object across parts in
+    // this loop, so a part with no tab entry (e.g. "aura" on a child, which #getTabs excludes)
+    // would otherwise silently inherit whichever tab rendered as active immediately before it,
+    // making that part's content show up "active" (and thus visible) alongside the real tab.
+    context.tab = context.tabs?.[partId] ?? null;
     return context;
   }
 

@@ -27,10 +27,7 @@ function _debug(...args) {
 // Initiative choices cached for the next config pass.
 const _pendingInitiativeChoices = new Map(); // actor.uuid -> gathered bonus records[]
 
-/**
- * Shared attack/damage stash.
- * It lets required and accepted optional bonuses dedupe together before the roll fires.
- */
+/** Shared attack/damage stash, lets required and accepted optional bonuses dedupe before the roll fires. */
 const _pendingActivityBonuses = new Map(); // useKey -> deduplicated bonus records[]
 
 // Multipart carry stash.
@@ -39,8 +36,7 @@ const _pending = new Map();          // useKey -> { ts, parents: Map<parentId, c
 const PENDING_TTL = 120000;          // ms
 
 /**
- * Build a per-use stash key.
- * Prefer the originating message, then workflow id, then the bare activity uuid.
+ * Key for this roll: message first, then live workflow cache, then midi's registry, then generation counter.
  *
  * @param {Activity} activity
  * @param {object} [opts]
@@ -62,22 +58,55 @@ function _useKey(activity, { message = null, originId = null } = {}) {
     return key;
   }
 
+  // Cache of the live workflow, filled before this runs (see _cacheLiveWorkflow's doc).
+  const liveWf = activity?.uuid ? _liveWorkflowByActivity.get(activity.uuid) : null;
+  const liveTag = _tagForWorkflow(liveWf);
+  if (liveTag) {
+    const key = `${base}::wf:${liveTag}`;
+    _debug("case-by-case | _useKey " + JSON.stringify({ base, source: "liveWorkflowCache", liveTag, key }));
+    return key;
+  }
+
+  // Backup check against midi's own workflow registry, though it's usually empty by now.
   const wf = activity?.uuid ? globalThis.MidiQOL?.Workflow?.getWorkflowByActivityUuid?.(activity.uuid) : null;
   const wfId = wf?.id ?? wf?.uuid ?? null;
-  const key = wfId ? `${base}::${wfId}` : base;
-  // Include fallback/collision details in the debug payload.
+  if (wfId) {
+    const key = `${base}::${wfId}`;
+    _debug("case-by-case | _useKey " + JSON.stringify({ base, source: "midiWorkflow", wfFound: true, wfId, key }));
+    return key;
+  }
+
+  // Last resort: generation counter instead of bare uuid; warns below if midi-qol is active but the cache still failed.
+  if (game.modules.get("midi-qol")?.active) {
+    console.warn(
+      "case-by-case | _useKey: midi-qol is active but no live workflow was cached, falling back to the generation counter. Please report this.",
+      { activityUuid: activity?.uuid },
+    );
+  }
+  const gen = _currentGeneration(activity?.uuid);
+  const key = gen ? `${base}::gen${gen}` : base;
   _debug("case-by-case | _useKey " + JSON.stringify({
-    base, source: wfId ? "midiWorkflow" : "bareUuid", wfFound: !!wf, wfId, key,
-    fellBackToBareUuid: !wfId,
+    base, source: gen ? "generation" : "bareUuid", wfFound: false, gen, key,
     keyAlreadyPending: _pending.has(key),
   }));
   return key;
 }
 
-/**
- * Stash later children for one multipart group.
- * FIFO batches avoid clobbering overlapping uses.
- */
+// Counter per activity, used as a last-resort key in _useKey.
+const _activityGeneration = new Map(); // activity.uuid -> integer
+
+/** Bumps once per attack roll, so a later damage roll only ever grabs its own attack's stash. */
+function _bumpGeneration(activityUuid) {
+  if (!activityUuid) return 0;
+  const n = (_activityGeneration.get(activityUuid) ?? 0) + 1;
+  _activityGeneration.set(activityUuid, n);
+  return n;
+}
+function _currentGeneration(activityUuid) {
+  return activityUuid ? (_activityGeneration.get(activityUuid) ?? 0) : 0;
+}
+
+/** Stash later children for one multipart group; FIFO batches avoid clobbering overlapping uses. */
 function _stashAccept(useKey, parentId, pendingChildren) {
   if (!useKey || !pendingChildren?.length) return;
   let e = _pending.get(useKey);
@@ -95,10 +124,7 @@ function _stashAccept(useKey, parentId, pendingChildren) {
   }));
 }
 
-/**
- * Consume stashed child formulas for one roll type.
- * Drain each group FIFO after dropping stale batches.
- */
+/** Consume stashed child formulas for one roll type, draining FIFO after dropping stale batches. */
 function _stashConsume(useKey, rollType) {
   if (!useKey) return [];
   const e = _pending.get(useKey);
@@ -195,23 +221,7 @@ function _bonusRollKinds(b) {
   return [b.type];
 }
 
-/**
- * Stack tags shared by 2+ enabled bonuses that could actually apply to this actor's own rolls --
- * local bonuses, plus this actor's own self-targeting auras. A native-routed bonus is baked into
- * the sheet at prep time and never enters _gatherBonusData's roll-time dedup pass -- so if another
- * bonus (optional, aura, or not) shares its stackTag, that comparison would silently never happen
- * and both could apply. Any bonus whose tag collides gets pulled off the native path so
- * _deduplicateByTag can actually see and compare all of them, same as it already does for two
- * optionals or two auras. Tags are compared the same way _deduplicateByTag does (trim + lowercase).
- *
- * A self-targeting aura (aura.self) applies back to its own caster unconditionally -- isInAura's
- * self-check skips the range test entirely when source === target -- so it's just as much a
- * same-actor collision risk as a plain local bonus, and gets counted here too. A non-self aura
- * only ever reaches OTHER tokens, which is a completely different actor's own native-routing
- * decision at ITS prep time, not knowable from here; those stay excluded. Cross-actor auras in
- * general can't be checked at this actor's prep time at all, since what's currently in range
- * depends on live token position, evaluated at roll time -- this only ever closes the self case.
- */
+/** Stack tags shared by 2+ of this actor's own bonuses (including self auras), so a native-routed bonus can still be pulled into dedup instead of silently double-applying. */
 function _actorCollidingStackTags(actor) {
   const counts = new Map();
   for (const source of _buildSources(actor)) {
@@ -288,9 +298,7 @@ function _hasRollContextFilters(f = {}) {
     || f.foeWithin != null || f.foeBloodied != null || f.foeEffectName?.trim());
 }
 
-/**
-   * Spell Save DC can use native routing with self-state filters, but not true roll-context or foe filters.
- */
+/** Spell Save DC can use native routing with self-state filters, but not roll-context or foe filters. */
 function _hasSaveDCBlockingFilters(f = {}) {
   return !!(f.itemTypes?.length || f.weaponProps?.length || f.spellSchools?.length
     || f.spellComponents?.length || f.damageTypes?.length
@@ -353,10 +361,7 @@ function _applyAdvantageModeContribs(system, contribs) {
   }
 }
 
-/**
- * Register one advantage/disadvantage source on a native mode field.
- * Uses field applyChange when available; otherwise falls back to direct write.
- */
+/** Register one advantage/disadvantage source on a native mode field, using applyChange when available. */
 function _grantAdvantageModeSource(system, key, delta) {
   try {
     const field = system.schema?.getField?.(key);
@@ -552,7 +557,30 @@ export function registerRollHooks() {
     Hooks.on("midi-qol.preAttackRoll", (workflow) => _configureMidiAttackRoll(workflow));
     Hooks.on("midi-qol.preAttackRollConfig", (workflow) => _configureMidiAttackRollConfig(workflow));
     // No RollComplete stash wipe; FIFO + TTL is safer for overlapping uses.
+
+    // These fire from inside Item.use(), before our own rollAttack wrapper ever runs, so the
+    // cache is ready in time.
+    Hooks.on("midi-qol.preTargetingV2", ({ workflow } = {}) => _cacheLiveWorkflow(workflow));
+    Hooks.on("midi-qol.preItemRollV2", ({ workflow } = {}) => _cacheLiveWorkflow(workflow));
   }
+}
+
+// Live workflow cache, replaces polling midi's own getWorkflowByActivityUuid which is dead in practice.
+const _liveWorkflowByActivity = new Map(); // activity.uuid -> live midi-qol Workflow object
+const _workflowTags = new WeakMap();        // Workflow object -> our own stable tag
+
+function _cacheLiveWorkflow(workflow) {
+  const activityUuid = workflow?.activity?.uuid;
+  if (!activityUuid) return;
+  _liveWorkflowByActivity.set(activityUuid, workflow);
+}
+
+/** Stable tag for a live workflow object, independent of midi-qol's own mutable workflow.id. */
+function _tagForWorkflow(workflow) {
+  if (!workflow) return null;
+  let tag = _workflowTags.get(workflow);
+  if (!tag) { tag = foundry.utils.randomID(); _workflowTags.set(workflow, tag); }
+  return tag;
 }
 
 function _configureMidiAttackRoll(workflow) {
@@ -823,11 +851,7 @@ export function registerActivityPatches() {
     }
   }
 
-  // Note: Spell Save DC used to support aura projection via a cast-time hook on the save
-  // activity's usage clone (staging the bonus onto activity.save.dc.bonus). That's been scoped
-  // out entirely -- Spell Save DC bonuses are local-only now (see bonus.mjs _normalizeBonus,
-  // which forces aura.enabled off for that type) and go through the normal prep-time native
-  // routing path in _injectActorBonuses/_isNativeSelfBonus instead.
+  // Spell Save DC bonuses are local-only now (aura projection for them was removed), routed at prep time instead.
 }
 
 // ---------------------------------------------------------------------------
@@ -849,6 +873,8 @@ async function _handleActivityOptional(wrapped, args, config, rollType, hookName
 
   // args is [config, dialog, message]; message may carry originatingMessage.
   const message = args[2];
+  // Bump the generation on a fresh attack roll only, so a damage roll only ever reads its own.
+  if (rollType === "attack") _bumpGeneration(activity?.uuid);
   const rollingToken = _preferredToken(actor);
   // Build the matcher config.
   const matchConfig = { ...config, subject: activity, item: activity.item };
@@ -875,10 +901,7 @@ async function _handleActivityOptional(wrapped, args, config, rollType, hookName
       formula: b.bonus,
       bonus: b.bonus,
       filters: b.filters,
-      // Was missing here too (same gap as _applyFoeAttackBonus's matched.push -- see its doc):
-      // an OPTIONAL foe-filtered bonus's Modification Type never survived into the dialog's
-      // accepted-bonus row, so accepting one always behaved as a flat additive bonus regardless
-      // of what was actually configured.
+      // modType used to get dropped here too, so accepting this always behaved as a flat bonus.
       modType: b.modType ?? "simple",
       stackTag: b.stackTag ?? "",
       advantage: !!b.advantage,
@@ -922,8 +945,7 @@ async function _handleActivityOptional(wrapped, args, config, rollType, hookName
   const nowBonuses = [];
   // Foe damage/heal/temphp goes through the per-target stash.
   const foeDamageAccepted = [];
-  // Substitute consumed amount and spend the resource (shared with every other optional-bonus
-  // roll path -- see _resolveChosenSimple's doc).
+  // Substitute @consumed and spend the resource (shared logic, see _resolveChosenSimple).
   const chosenSimple = await _resolveChosenSimple(chosen, actor);
   for (const b of chosenSimple) {
     if (_isMultiTargetRollType(rollType) && b.foeFiltered) {
@@ -934,13 +956,10 @@ async function _handleActivityOptional(wrapped, args, config, rollType, hookName
       nowBonuses.push(b);
     }
   }
-  // Substitute the group's @consumed and spend its shared cost once, if it has one -- see
-  // _resolveChosenGroups's doc. Returns the same rows untouched when a group has no consumption.
+  // Substitute the group's @consumed and spend its shared cost once (see _resolveChosenGroups).
   const chosenGroups = await _resolveChosenGroups(chosen, actor);
   for (const r of chosenGroups) {
-    // Each part routes individually now (see defaultChild's doc) -- a group can freely mix a
-    // foe-filtered damage part with a plain one under the SAME accept decision; only the parts
-    // that are actually foe-filtered go through the per-target engine.
+    // Each part routes individually, so a group can mix foe-filtered and plain parts under one accept.
     r.group.nowChildren.forEach((c, i) => {
       if (_isMultiTargetRollType(rollType) && _hasFoeFilters(c.filters)) {
         // Same modType carry-through as the simple-bonus branch above (see its comment).
@@ -964,9 +983,7 @@ async function _handleActivityOptional(wrapped, args, config, rollType, hookName
   }
   if (foeDamageAccepted.length) _stashAcceptedFoeDamage(useKey, foeDamageAccepted);
 
-  // Optional crit range takes the best threshold. Spend cost + substitute @consumed first (see
-  // _resolveChosenCritRange's doc) -- a formula like "20 - @consumed" needs the literal amount in
-  // place before it's evaluated below.
+  // Optional crit range takes the best threshold; spend cost and substitute @consumed first.
   let critThreshold = null;
   const chosenCritRange = await _resolveChosenCritRange(chosen, actor);
   if (chosenCritRange.length) {
@@ -980,8 +997,7 @@ async function _handleActivityOptional(wrapped, args, config, rollType, hookName
 
   if (!nowBonuses.length && critThreshold === null) return wrapped(...args);
 
-  // Cross-dedupe against required bonuses for this SAME roll before injecting -- see
-  // _pendingActivityBonuses's doc for why this stash exists and _injectSync for the consumer side.
+  // Cross-dedupe against required bonuses for this same roll before injecting (see _injectSync).
   if (nowBonuses.length) {
     const required = _gatherBonusData(actor, rollingToken, matchConfig, rollType).filter(b => !b.optional);
     const combined = _deduplicateByTag([...required, ...nowBonuses]);
@@ -994,8 +1010,7 @@ async function _handleActivityOptional(wrapped, args, config, rollType, hookName
     });
   }
 
-  // Crit threshold is a Math.min clamp -- safe to apply from an independent listener regardless of
-  // ordering, unlike the additive formula bonuses above, so it doesn't need the cross-dedup stash.
+  // Crit threshold is just a min clamp, so it's safe without the cross-dedup stash.
   const hookId = Number.isFinite(critThreshold) ? _injectOnce(hookName, [], activity, actor, critThreshold) : null;
   try { return await wrapped(...args); }
   finally {
@@ -1004,10 +1019,7 @@ async function _handleActivityOptional(wrapped, args, config, rollType, hookName
   }
 }
 
-/**
- * Whether one multipart child currently passes its own filters.
- * If `group` is provided, also require group foe filters against the same target.
- */
+/** Whether one multipart child passes its own filters, plus the group's foe filters if given. */
 function _childPasses(child, config, actor, targets, attackerToken, group = null) {
   if (!_filtersMatch({ filters: child.filters, type: child.type }, config, actor, child.type)) return false;
   const childFoe = _hasFoeFilters(child.filters);
@@ -1022,10 +1034,7 @@ function _childPasses(child, config, actor, targets, attackerToken, group = null
   return true;
 }
 
-/**
- * Merge group foe filters into child filters for one-field consumers.
- * Child values win when both set the same key.
- */
+/** Merge group foe filters into child filters for one-field consumers; child values win on collision. */
 function _mergeFoeFilters(groupFilters = {}, childFilters = {}) {
   const FOE_KEYS = ["foeConditions", "foeTypes", "foeSizes", "foeMovement", "foeLanguages",
     "foeWithin", "foeBloodied", "foeEffectName", "foeEffectActiveOnly"];
@@ -1038,33 +1047,19 @@ function _mergeFoeFilters(groupFilters = {}, childFilters = {}) {
   return out;
 }
 
-/**
- * Multipart groups (optional, timing === rollType) whose single accept/decline
- * decision should be made at this roll. Splits children into those applied now
- * (matching this roll) vs carried to a later roll.
- */
+/** Multipart groups whose accept/decline decision is made at this roll, split into now vs later children. */
 function _collectTimedGroups(actor, config, rollType, targets = null, attackerToken = null) {
   const out = [];
   for (const source of _buildSources(actor)) {
     for (const b of peekBonuses(source)) {
       if (b.kind !== "multipart" || !b.enabled || !b.optional) continue;
       if (b.aura?.enabled) continue; // aura groups apply via the aura path, not a timed local prompt
-      // Same hostItemOk idea as _gatherBonusData's multipart branch (inlined here since this
-      // function doesn't share that closure) — a group scoped to its host item shouldn't be
-      // offered at all when rolling a DIFFERENT item on the actor.
+      // Same hostItemOk idea as _gatherBonusData: a host-item-scoped group shouldn't offer on a different item.
       if (b.scopeToHostItem && !(source instanceof Item && _configItem(config)?.id === source.id)) continue;
       if ((b.promptTiming ?? "associated") !== rollType) continue;
-      // Group-level top-layer filters (Roll/Recipient -- restored alongside per-child filtering;
-      // see BonusManager's #getTabs) gate the WHOLE group up front, checked against the CURRENT
-      // roll. Target (foe) filters are folded into _childPasses below instead, since "does a
-      // target match" needs the group's AND the child's own criteria checked against the SAME
-      // target, not as two separate "any target matches" passes.
+      // Group-level Roll/Recipient filters gate the whole group; foe filters are handled per-child in _childPasses instead.
       if (!_filtersMatch(b, config, actor, rollType)) continue;
-      // Each part ALSO filters independently on top of that (see defaultChild's doc +
-      // _childPasses) — a part that doesn't currently pass its own filters (or the group's) is
-      // dropped from this offering. The group itself is only offered if at least one part
-      // survives; which parts land in nowChildren vs laterChildren is unaffected by this, still
-      // purely based on roll type.
+      // Each part also filters independently; the group is only offered if at least one part survives.
       const children = (b.children ?? []).filter(c => _childPasses(c, config, actor, targets, attackerToken, b));
       if (!children.length) continue;
       const isNow = (c) => c.type === rollType;
@@ -1078,8 +1073,6 @@ function _collectTimedGroups(actor, config, rollType, targets = null, attackerTo
         foeFiltered:   children.some(c => _hasFoeFilters(c.filters)),
         stackTag:      b.stackTag ?? "",
         // One shared cost for the whole group, spent once on accept (see _resolveChosenGroups).
-        // Only ever meaningfully enabled here: "timed" promptTiming is exactly the one case with
-        // a single group-accept moment (bonus.mjs's _normalizeBonus force-clears it otherwise).
         consumption:   b.consumption,
       });
     }
@@ -1087,14 +1080,7 @@ function _collectTimedGroups(actor, config, rollType, targets = null, attackerTo
   return out;
 }
 
-/**
- * Like _collectTimedGroups, but for OPTIONAL+timed multipart *auras* projected
- * onto this recipient from nearby source tokens. Children are resolved against the
- * source actor up front, so the carried (later) children inject correctly even
- * though the recipient — not the source — is the one rolling later. Each child's own filters are
- * checked against the RECIPIENT (actor) though, same as the group-level aura filters used to be —
- * a filter here means "does this apply to the creature receiving the aura," not the source.
- */
+/** Like _collectTimedGroups but for optional timed multipart auras projected onto this recipient. */
 function _collectAuraTimedGroups(actor, rollingToken, config, rollType, targets = null, attackerToken = null) {
   const out = [];
   if (!rollingToken) return out;
@@ -1104,9 +1090,7 @@ function _collectAuraTimedGroups(actor, rollingToken, config, rollType, targets 
       if (b.kind !== "multipart" || !b.optional) continue;        // enabled + aura already guaranteed
       if ((b.promptTiming ?? "associated") !== rollType) continue;
       if (!isInAura(sourceToken, rollingToken, b.aura)) continue;
-      // Group-level top-layer filters, checked against the RECIPIENT (actor) -- same reasoning
-      // as _collectTimedGroups's own group-level gate, and same "checked against the recipient"
-      // rule each child's own filters already follow here.
+      // Group-level filters checked against the recipient, same as _collectTimedGroups.
       if (!_filtersMatch(b, config, actor, rollType)) continue;
       const children = (b.children ?? [])
         .map(c => ({
@@ -1159,10 +1143,7 @@ async function rollInitiativeDialog(wrapped, rollOptions = {}) {
 
   let chosen = [];
   if (optional.length) {
-    // Wrap rows the same way _handleActivityOptional does, so _rowConsumption recognizes these
-    // rows and the dialog shows a cost/affordability row -- see _resolveChosenSimple's doc for why
-    // this matters (bare bonus records had no "kind"/"bonus" wrapper, so consumption silently
-    // never applied on this path).
+    // Wrap rows like _handleActivityOptional does, so the dialog shows cost/affordability correctly.
     const rows = optional.map(b => ({ id: b.id, name: b.name, formula: b.formula, kind: "simple", bonus: b }));
     const chosenRows = await _promptOptional(rows, actor) ?? [];
     chosen = await _resolveChosenSimple(chosenRows, actor);
@@ -1186,10 +1167,7 @@ function d20ConfigureModifiers(wrapped, ...args) {
   return out;
 }
 
-/**
- * Apply extra d20 dice for both dnd5e pool shapes.
- * Supports numeric kh/kl pools and adv/dis token pools.
- */
+/** Apply extra d20 dice for both dnd5e pool shapes: numeric kh/kl pools and adv/dis token pools. */
 function _applyCbExtraDice(roll) {
   const ADV_MODE = CONFIG.Dice?.D20Roll?.ADV_MODE;
   const options = roll.options ?? {};
@@ -1284,10 +1262,7 @@ async function _handleRoll(wrapped, args, config, rollType, hookName) {
 
   let chosen = [];
   if (optional.length) {
-    // Wrap rows the same way _handleActivityOptional does, so _rowConsumption recognizes these
-    // rows and the dialog shows a cost/affordability row -- see _resolveChosenSimple's doc for why
-    // this matters (bare bonus records had no "kind"/"bonus" wrapper, so consumption silently
-    // never applied on saves/checks/skills/death saves/hit dice).
+    // Wrap rows like _handleActivityOptional does, so the dialog shows cost/affordability correctly.
     const rows = optional.map(b => ({ id: b.id, name: b.name, formula: b.formula, kind: "simple", bonus: b }));
     const chosenRows = await _promptOptional(rows, actor) ?? [];
     chosen = await _resolveChosenSimple(chosenRows, actor);
@@ -1302,11 +1277,7 @@ async function _handleRoll(wrapped, args, config, rollType, hookName) {
   finally { Hooks.off(hookName, hookId); }
 }
 
-/**
- * Register a one-shot pre-roll injector.
- * Skips firings proven to be for another subject.
- */
-/** Apply optional crit threshold as Math.min with current criticalSuccess. */
+/** One-shot pre-roll injector, skips firings for another subject; also applies crit threshold as a min clamp. */
 function _injectOnce(hookName, bonuses, subject, actor = null, critThreshold = null) {
   let applied = false;
   const id = Hooks.on(hookName, (rollConfig, dialog) => {
@@ -1574,8 +1545,7 @@ function _injectSync(rollConfig, rollType, dialog = null, message = null) {
 
   const useKey = _useKey(rollConfig.subject, { message });
 
-  // If optional flow already prepared a cross-deduped list for this roll, use it once.
-  // Otherwise gather required bonuses normally.
+  // Use the optional flow's cross-deduped list if it prepared one, otherwise gather required bonuses normally.
   const pending = _pendingActivityBonuses.get(useKey);
   if (pending) _pendingActivityBonuses.delete(useKey);
   const required = pending ?? _deduplicateByTag(
@@ -1627,9 +1597,7 @@ function _applyCritRange(rollConfig, actor, rollingToken) {
 
 // Optional bonus dialog.
 
-/**
- * Return the consumption block for simple, group, or critRange rows.
- */
+/** Return the consumption block for simple, group, or critRange rows. */
 function _rowConsumption(row) {
   if (row.kind === "simple") return row.bonus?.consumption;
   if (row.kind === "group") return row.group?.consumption;
@@ -1637,10 +1605,7 @@ function _rowConsumption(row) {
   return null;
 }
 
-/**
- * Read the currently available amount for a consumption target.
- * Used to cap optional spending UI and later safety clamps.
- */
+/** Read the currently available amount for a consumption target, used to cap spending UI and safety clamps. */
 function _availableResourceAmount(actor, consumption) {
   if (!actor || !consumption?.enabled) return Infinity;
   try {
@@ -1661,10 +1626,7 @@ function _isAnySpellSlot(c) {
   return c?.type === "spellSlot" && c?.target === "any";
 }
 
-/**
- * Build spell-slot choices for the "Any Available Slot" option.
- * Here, @consumed resolves to chosen slot level, not quantity spent.
- */
+/** Build spell-slot choices for "Any Available Slot"; @consumed resolves to chosen slot level, not quantity. */
 function _spellSlotChoices(actor) {
   const spells = actor?.system?.spells ?? {};
   const out = [];
@@ -1780,10 +1742,7 @@ function _substituteConsumed(formula, amount) {
   return _substituteConsumedShared(formula, amount);
 }
 
-/**
- * Resolve chosen simple rows.
- * Spend first, then substitute @consumed so unpaid bonuses never apply.
- */
+/** Resolve chosen simple rows: spend first, then substitute @consumed so unpaid bonuses never apply. */
 async function _resolveChosenSimple(chosen, actor) {
   const rows = [];
   for (const r of chosen) {
@@ -1808,10 +1767,7 @@ async function _resolveChosenSimple(chosen, actor) {
   return _deduplicateByTag(rows);
 }
 
-/**
- * Resolve chosen group rows.
- * Spend shared cost first, then substitute @consumed for all children.
- */
+/** Resolve chosen group rows: spend shared cost first, then substitute @consumed for all children. */
 async function _resolveChosenGroups(chosen, actor) {
   const out = [];
   for (const r of chosen.filter(r => r.kind === "group")) {
@@ -1837,10 +1793,7 @@ async function _resolveChosenGroups(chosen, actor) {
   return out;
 }
 
-/**
- * Resolve chosen critRange rows.
- * Spend first, then substitute @consumed into threshold formulas.
- */
+/** Resolve chosen critRange rows: spend first, then substitute @consumed into threshold formulas. */
 async function _resolveChosenCritRange(chosen, actor) {
   const out = [];
   for (const r of chosen.filter(r => r.kind === "critRange")) {
@@ -1955,10 +1908,7 @@ function _bonusSummary(b) {
 
 // Stacking deduplication by tag.
 
-/**
- * Best-effort numeric estimate for stack-tag comparison only.
- * Use exact arithmetic when possible, expected value for dice terms otherwise.
- */
+/** Best-effort numeric estimate for stack-tag comparison only, exact arithmetic when possible else expected value. */
 function _estimateFormulaValue(formula) {
   const s = String(formula ?? "").trim();
   if (!s) return null;
@@ -1990,12 +1940,10 @@ function _estimateFormulaValue(formula) {
 }
 
 /**
- * Composite score for a multipart group when comparing stack tags.
- * Sum across children so the group competes as one owner.
- * @param {object[]} children     bonus.children
- * @param {(child: object) => string|null} formulaOf   the formula string to estimate for one
- *   child. Caller decides whether that formula is pre-resolved or raw.
- * @returns {number|null} null if no child produced an estimable value.
+ * Composite score for a multipart group when comparing stack tags, summed so the group competes as one owner.
+ * @param {object[]} children bonus.children
+ * @param {(child: object) => string|null} formulaOf formula string to estimate for one child
+ * @returns {number|null} null if no child produced an estimable value
  */
 function _groupStackScore(children, formulaOf) {
   let total = 0, any = false;
@@ -2006,10 +1954,7 @@ function _groupStackScore(children, formulaOf) {
   return any ? total : null;
 }
 
-/**
- * Deduplicate formulas by stack tag.
- * Keep adv/dis and extra-d20 flags, and compare by owner (single bonus or multipart group).
- */
+/** Deduplicate formulas by stack tag, keeping adv/dis and extra-d20 flags, comparing by owner. */
 function _deduplicateByTag(bonuses) {
   const winners = new Map(); // tag -> { ownerId, score }
   for (const b of bonuses) {
@@ -2065,9 +2010,7 @@ function _gatherBonusData(actor, rollingToken, config, rollType, targets = null,
 
       const foeFiltered = _hasFoeFilters(bonus.filters);
 
-      // Expand multipart children for this roll. Each part filters completely independently
-      // (see defaultChild's doc) ON TOP of the group's own top-layer bonus.filters, restored
-      // alongside per-child filtering -- see BonusManager's #getTabs.
+      // Expand multipart children for this roll; each part filters independently on top of the group's own filters.
       if (bonus.kind === "multipart") {
         if (bonus.aura?.enabled) continue; // aura multiparts: see the aura loop below instead
         if (!hostItemOk(bonus, source)) continue;
@@ -2076,36 +2019,23 @@ function _gatherBonusData(actor, rollingToken, config, rollType, targets = null,
         // Group-level non-foe filters gate the WHOLE group up front.
         if (!_filtersMatch(bonus, config, actor, rollType)) continue;
         if (foeFiltered) {
-          // A REQUIRED group's own foe filter needs a matching target for the group to apply AT
-          // ALL, same as a required foe-filtered simple bonus -- that's handled by
-          // _gatherFoeBonuses instead (which now also checks this same group-level foe filter,
-          // covering every child of the group uniformly, not just ones with their own foe
-          // filter; see its doc). An OPTIONAL group's own foe filter is checked directly here:
-          // if it fails, none of this group's children are offered at all.
+          // A required group's own foe filter is handled by _gatherFoeBonuses instead; optional groups are checked directly here.
           if (!bonus.optional) continue;
           if (!foeMatchesCurrentTarget(bonus.filters)) continue;
         }
-        // One composite score for the WHOLE group, reused on every child row pushed below -- see
-        // _groupStackScore's doc for why (a per-child score is what let two same-tagged groups
-        // mix their stronger halves instead of one group winning outright).
+        // One composite score for the whole group, reused on every child row below (see _groupStackScore).
         const groupScore = bonus.stackTag
           ? _groupStackScore(bonus.children, c => _resolveFormula(c.bonus, actor, rollItem))
           : null;
         for (const child of bonus.children ?? []) {
           if (child.type !== rollType) continue;
-          // A required foe-filtered part only fires when a current target actually matches
-          // (mirrors _gatherFoeBonuses' automatic path for simple required foe bonuses); an
-          // optional part that fails its own foe filter just isn't offered.
+          // A required foe-filtered part only fires against a matching target; an optional one just isn't offered otherwise.
           if (_hasFoeFilters(child.filters)) {
             if (!bonus.optional) continue;
             if (!foeMatchesCurrentTarget(child.filters)) continue;
           }
           if (!_filtersMatch({ filters: child.filters, type: child.type }, config, actor, child.type)) continue;
-          // Resolve @refs now (same as the aura multipart-child path below), so a stacking
-          // comparison against another bonus with the same stackTag isn't comparing a raw
-          // "@abilities.cha.mod" string against an already-resolved number (see
-          // _deduplicateByTag's doc for why that comparison silently favored whichever side
-          // happened to be pre-resolved, regardless of actual value).
+          // Resolve @refs now so a stackTag comparison isn't comparing a raw ref string against a resolved number.
           const resolved = _resolveFormula(child.bonus, actor, rollItem);
           if (resolved !== null) {
             result.push({ id: `${bonus.id}:${child.id}`, name: `${bonus.name}: ${child.name}`,
@@ -2126,16 +2056,10 @@ function _gatherBonusData(actor, rollingToken, config, rollType, targets = null,
       if (!_filtersMatch(bonus, config, actor, rollType)) continue;
       // Skip adv/dis when this roll kind already routed natively.
       const nativeRouted = _nativeAdvantageRoutesKind(bonus, rollType) && (bonus.advantage !== bonus.disadvantage);
-      // Resolve @refs now, same as the aura path just below in this function — previously local
-      // bonuses were pushed with their raw, unresolved formula string while aura bonuses were
-      // already resolved here, so a stacking (stackTag) comparison between a local and an aura
-      // bonus was comparing "@abilities.cha.mod" against "3" and always favored whichever side
-      // happened to already be a plain number, regardless of actual value (see
-      // _deduplicateByTag). Resolving both the same way fixes that at the source instead.
+      // Resolve @refs now, same as the aura path below, so local vs aura stackTag comparisons aren't apples-to-oranges.
       const localResolved = _resolveFormula(bonus.bonus, actor, rollItem);
       if (localResolved === null) continue;
-      // Same @ref-resolution asymmetry as `formula` above, one field over: the aura path already
-      // resolves additionalD20, local bonuses didn't.
+      // Same @ref fix, one field over: the aura path already resolved additionalD20, local bonuses didn't.
       const localAddD20 = _resolveFormula(bonus.additionalD20 ?? "0", actor, rollItem) ?? (bonus.additionalD20 ?? "0");
       result.push({ id: bonus.id, name: bonus.name, formula: localResolved, type: bonus.type,
                     optional: !!bonus.optional, stackTag: bonus.stackTag ?? "",
@@ -2160,23 +2084,15 @@ function _gatherBonusData(actor, rollingToken, config, rollType, targets = null,
           // Timed optional aura groups are prompted elsewhere.
           const timing = bonus.promptTiming ?? "associated";
           if (bonus.optional && timing !== "associated") continue;
-          // Group-level top-layer filters, checked against the RECIPIENT (actor) -- restored
-          // alongside per-child filtering (see BonusManager's #getTabs), same "checked against
-          // the recipient" rule each child's own filters already follow below.
+          // Group-level filters checked against the recipient, same rule each child's own filters follow below.
           if (!_filtersMatch(bonus, config, actor, rollType)) continue;
           if (_hasFoeFilters(bonus.filters)) {
-            // Same pre-existing limitation a required child's own foe filter already has right
-            // below: _gatherAuraFoeBonuses never handles multipart auras at all, so a required
-            // (non-optional) group-level foe filter has nowhere else to be picked up. Not new
-            // here -- an optional group's own foe filter is still fully supported, checked
-            // directly against a current target.
+            // _gatherAuraFoeBonuses never handles multipart auras, so a required group foe filter has nowhere else to go; optional ones are checked directly here.
             if (!bonus.optional) continue;
             if (!foeMatchesCurrentTarget(bonus.filters)) continue;
           }
-          // Project matching children from source. Each part filters completely independently
-          // (see defaultChild's doc) ON TOP of the group-level check above -- checked against
-          // the RECIPIENT (actor), same as the group-level check.
-          // One composite score for the whole group -- see _groupStackScore's doc.
+          // Project matching children from source, each filtering independently on top of the group-level check.
+          // One composite score for the whole group (see _groupStackScore).
           const groupScore = bonus.stackTag
             ? _groupStackScore(bonus.children, c => _resolveFormula(c.bonus, sourceActor, rollItem))
             : null;
@@ -2250,10 +2166,9 @@ function _typeMatches(bonus, rollType) {
 
 /**
  * @param {Actor} actor
- * @param {string|null} kind    "save" | "check" | "skill" (anything else has no single
- *   ability/skill proficiency concept in dnd5e and always passes)
- * @param {object} config       the roll config; ability/skill live at config.ability/config.skill
- * @param {string} want         "proficient" | "expertise" | "either" | "none"
+ * @param {string|null} kind "save" | "check" | "skill" (anything else always passes)
+ * @param {object} config the roll config; ability/skill live at config.ability/config.skill
+ * @param {string} want "proficient" | "expertise" | "either" | "none"
  */
 function _proficiencyMatches(actor, kind, config, want) {
   let mult = null;
@@ -2265,8 +2180,7 @@ function _proficiencyMatches(actor, kind, config, want) {
     // Skills store their own resolved multiplier directly on .value once prepared.
     mult = Number(actor.system?.skills?.[config.skill]?.value);
   } else {
-    // No ability/skill in context yet (prep-time, or a roll type with no proficiency concept) --
-    // don't block the bonus over something we can't evaluate.
+    // No ability/skill in context yet, so don't block the bonus over something we can't evaluate.
     return true;
   }
   if (!Number.isFinite(mult)) return true;
@@ -2288,8 +2202,7 @@ function _filtersMatch(bonus, config, actor = null, rollType = null) {
   // Skill filter
   if (f.skills?.length && config.skill && !f.skills.includes(config.skill)) return false;
 
-  // Proficiency filter (save/check/skill only). Uses the multipart-aware roll kind when passed by
-  // the caller, since a multipart bonus's own .type isn't meaningful (see _bonusRollKinds).
+  // Proficiency filter (save/check/skill only); uses the multipart-aware roll kind when passed (see _bonusRollKinds).
   if (f.proficiency?.trim() && actor) {
     const kind = rollType ?? bonus.type;
     if (!_proficiencyMatches(actor, kind, config, f.proficiency.trim())) return false;
@@ -2452,10 +2365,7 @@ function _creatureMatches(a, f) {
   return true;
 }
 
-/**
- * Evaluate one comparison expression against roll data.
- * Unparseable expressions are treated as pass-through.
- */
+/** Evaluate one comparison expression against roll data; unparseable expressions pass through. */
 function _comparisonPasses(expr, actor) {
   const m = String(expr).match(/^(.*?)(<=|>=|==|!=|<|>)(.*)$/);
   if (!m) return true;
@@ -2478,9 +2388,7 @@ function _comparisonPasses(expr, actor) {
 }
 
 /**
- * Derive the dnd5e action type (mwak/rwak/msak/rsak) for an attack/damage roll.
- * The activity is on `config.subject`; prefer its `actionType` getter, else compute
- * from the attack classification (`attack.type.value` + `attack.type.classification`).
+ * Derive the dnd5e action type (mwak/rwak/msak/rsak) for an attack/damage roll on config.subject.
  * @returns {string|null}
  */
 function _actionType(config) {
@@ -2501,10 +2409,7 @@ function _configItem(config) {
 
 // Foe damage engine (per target, via midi-qol).
 
-/**
- * Call on ready.
- * Only per-target foe-damage merging requires midi-qol.
- */
+/** Call on ready; only per-target foe-damage merging requires midi-qol. */
 export function registerFoeDamageEngine() {
   if (!game.modules.get("midi-qol")?.active) {
     console.warn("case-by-case | midi-qol is not installed or not active. Foe-filtered Damage/Healing/Temp HP bonuses that need to apply a different amount per target on a multi-target roll will not work; everything else in the module is unaffected.");
@@ -2549,18 +2454,7 @@ async function _rollAndPostFoeDamage(workflow) {
   // Also covers foe-filtered heal/temphp.
   const rollType = _activityBonusType(activity);
 
-  // Accept time (_handleActivityOptional) keys via _useKey(activity, {message}), which prefers
-  // message.data.flags.dnd5e.originatingMessage when dnd5e/midi-qol set one -- the normal case
-  // for a damage roll chained off an attack card. This function only has `workflow` in scope, not
-  // that `message` config, so it used to derive a DIFFERENT key from workflow.id/uuid straight
-  // away -- meaning whenever accept time picked the message-based key, this side never tried it
-  // and the accepted bonus just sat in the stash until its TTL pruned it. Confirmed in midi-qol's
-  // own source (rollAttack/rollDamage/rollAbilityTest wrappers) that it sets that exact flag FROM
-  // workflow.itemCardId, so trying that first here reproduces the SAME key accept time picked, and
-  // falls back to workflow id then bare uuid -- the same two-step fallback accept time itself uses
-  // when no originatingMessage was set yet (see _useKey's doc). Tried in order, stopping at the
-  // first match rather than concatenating: accept time only ever writes ONE key, so more than one
-  // candidate matching would mean double-applying the same batch.
+  // Try the same key candidates accept time could have used (itemCardId, then workflow id/uuid), stopping at the first match.
   const keyCandidates = [
     _useKey(activity, { originId: workflow?.itemCardId ?? null }),
     _useKey(activity, { originId: workflow?.id ?? workflow?.uuid ?? null }),
@@ -2585,8 +2479,8 @@ async function _rollAndPostFoeDamage(workflow) {
   _debug("case-by-case | foe damage: workflow targets:", candidates.size);
   if (!candidates.size) return;
 
-  // Pick output type for damage vs heal/temphp.
-  const dmgType = rollType === "damage" ? (_activityPrimaryDamageType(activity) ?? "")
+  // Fallback output type for damage vs heal/temphp, used when a bonus's formula has no bracketed damage type of its own.
+  const fallbackDmgType = rollType === "damage" ? (_activityPrimaryDamageType(activity) ?? "")
     : (rollType === "temphp" ? "temphp" : "healing");
   const speaker = ChatMessage.getSpeaker({ token, actor });
 
@@ -2594,6 +2488,11 @@ async function _rollAndPostFoeDamage(workflow) {
     const matchedTokens = [...candidates].filter(t => _foeMatches(t, b.filters, token));
     _debug(`case-by-case | foe damage: bonus "${b.name}" matched ${matchedTokens.length} of ${candidates.size} target(s)`);
     if (!matchedTokens.length) continue;
+
+    // A bonus's own formula (e.g. "1d8[radiant]") wins over the host weapon's damage type for resist/vulnerability checks.
+    const dmgType = rollType === "damage"
+      ? (_formulaPrimaryDamageType(b.bonus) ?? fallbackDmgType)
+      : fallbackDmgType;
 
     // Resolve with actor + rolled item data.
     const resolvedFormula = _resolveFormula(String(b.bonus), actor, activity.item) ?? String(b.bonus);
@@ -2608,10 +2507,7 @@ async function _rollAndPostFoeDamage(workflow) {
       flavor: `${b.name}${dmgType ? ` (${dmgType})` : ""}`,
     });
 
-    // Keep rollType so phase 2 can branch damage vs healing logic. Stash a stable, serializable
-    // workflow id alongside the live object reference: the reference only survives if phase 2
-    // runs on this SAME client, and won't hold up if midi-qol ends up applying damage on a
-    // different client (see _mergeFoeDamageForTarget's matching logic).
+    // Keep rollType for phase 2's damage-vs-healing branch, and stash a serializable workflow id alongside the live reference in case phase 2 runs on a different client.
     _stashFoeDamage(matchedTokens, {
       name: b.name, total, dmgType: dmgType || "none", rollType, workflow,
       workflowId: workflow?.uuid ?? workflow?.id ?? null,
@@ -2695,9 +2591,7 @@ function _applyFoeAttackBonus(rollConfig, actor, dialog = null) {
       // Keep modType; otherwise this defaults to simple.
       modType: b.modType ?? "simple",
       stackTag: b.stackTag ?? "",
-      // Carry the group-stacking fields through too -- dropping these here (this rebuilds a new
-      // object instead of spreading `b`) would silently fall back to per-child comparison again,
-      // the same reconstruction gap that used to drop modType at this exact spot.
+      // Carry the group-stacking fields through too, dropping these here used to silently fall back to per-child comparison.
       stackGroupId: b.stackGroupId, stackScore: b.stackScore,
       advantage: !!b.advantage,
       disadvantage: !!b.disadvantage,
@@ -2711,10 +2605,7 @@ function _applyFoeAttackBonus(rollConfig, actor, dialog = null) {
   _syncDialogDefaultButton(dialog, rollConfig, deduped);
 }
 
-/**
- * Phase 2: merge per-target foe damage on preTargetDamageApplication.
- * Uses MidiQOL.modifyDamageBy and actor uuid correlation.
- */
+/** Phase 2: merge per-target foe damage on preTargetDamageApplication, via MidiQOL.modifyDamageBy and actor uuid correlation. */
 function _mergeFoeDamageForTarget(token, details) {
   _pruneFoeDamagePending();
 
@@ -2723,10 +2614,7 @@ function _mergeFoeDamageForTarget(token, details) {
   const workflow = details?.workflow ?? null;
   const workflowId = workflow?.uuid ?? workflow?.id ?? null;
 
-  // Consume only entries from this workflow. Prefer the stable id when both sides have one
-  // (works even if phase 1 and phase 2 end up running on different clients' Workflow instances
-  // for the same logical use); fall back to the live object reference only when an id genuinely
-  // isn't available on either side, matching the original behavior for that case.
+  // Consume only entries from this workflow, preferring the stable id (works across clients) and falling back to the live object reference.
   const sameWorkflow = (p) => (workflowId != null && p.workflowId != null)
     ? p.workflowId === workflowId
     : p.workflow === workflow;
@@ -2810,19 +2698,8 @@ function _gatherFoeBonuses(actor, config, types, wantOptional = false) {
         // for the ambient "current roll" the group-level Proficiency filter (if any) needs.
         if (!_filtersMatch(b, config, actor, types[0])) continue;
         const groupFoeFiltered = _hasFoeFilters(b.filters);
-        // Each part filters (including foe filters) completely independently -- see
-        // defaultChild's doc -- ON TOP of the group-level filters above. A required group can
-        // freely mix foe-filtered and non-foe-filtered parts. When the GROUP ITSELF also has its
-        // own top-layer foe filter, every child needs it ANDed in too (merged per-field via
-        // _mergeFoeFilters -- see its doc), even ones with no foe filter of their own, since they
-        // now inherit that requirement from the group (mirrors _gatherBonusData's own multipart
-        // branch, which defers a required group's own foe filter here for exactly this reason).
-        // A child with neither its own nor an inherited foe filter isn't foe-gated at all and is
-        // instead handled by _gatherBonusData's multipart branch.
-        // One composite score for the whole group -- see _groupStackScore's doc. Left unresolved
-        // (raw child.bonus), matching how this function already scores its own non-multipart
-        // rows -- it doesn't resolve @refs at all (see the ...b spread just below), so resolving
-        // only here would just compare an unresolved simple bonus against a resolved group score.
+        // Each part filters independently on top of the group-level filters; if the group itself has a top-layer foe filter, every child inherits it (merged via _mergeFoeFilters). A child with no foe filter at all isn't foe-gated here and goes through _gatherBonusData's multipart branch instead.
+        // One composite score for the whole group, left unresolved (raw child.bonus) to match how this function scores its own non-multipart rows.
         const groupScore = b.stackTag ? _groupStackScore(b.children, c => c.bonus) : null;
         for (const child of b.children ?? []) {
           if (!types.includes(child.type)) continue;
@@ -2846,13 +2723,7 @@ function _gatherFoeBonuses(actor, config, types, wantOptional = false) {
 
       if (!_hasFoeFilters(b.filters)) continue;
       if (!_filtersMatch(b, config, actor)) continue;
-      // Match via _typeMatches (not raw `types.includes(b.type)`): an Advantage/Disadvantage
-      // bonus's real type is "advantage"/"disadvantage", never the literal roll type it's routed
-      // for, so a plain equality check here always missed them -- meaning a foe-filtered
-      // Advantage/Disadvantage bonus (e.g. "advantage on attacks vs. a Bloodied target") was never
-      // gathered at all, on top of the (now-fixed) BonusConfig UI gap that made one impossible to
-      // configure in the first place. _typeMatches already handles this correctly via
-      // _bonusRollKinds for every OTHER caller of this pattern (_typeMatches itself, _gatherBonusData).
+      // Match via _typeMatches, not raw types.includes(b.type): an Advantage/Disadvantage bonus's real type is never the literal roll type it's routed for.
       if (!types.some(t => _typeMatches(b, t))) continue;
       out.push({
         ...b,
@@ -2875,9 +2746,7 @@ function _gatherAuraFoeBonuses(actor, rollingToken, config, types, wantOptional 
   for (const { token: sourceToken, actor: sourceActor, auras } of getAuraSources()) {
     for (const b of auras) {
       const inAura = isInAura(sourceToken, rollingToken, b.aura);
-      // See _gatherFoeBonuses's matching doc just above -- same _typeMatches fix, same reason:
-      // an aura-hosted Advantage/Disadvantage bonus's `type` is never literally "attack", so raw
-      // equality always missed it even when its rollKinds legitimately included Attack.
+      // Same _typeMatches fix as _gatherFoeBonuses: an aura-hosted Advantage/Disadvantage bonus's type is never literally "attack".
       const typeOk = types.some(t => _typeMatches(b, t));
       const foeOk = _hasFoeFilters(b.filters);
       const filtersOk = _filtersMatch(b, config, actor);
@@ -2912,12 +2781,30 @@ function _gatherAuraFoeBonuses(actor, rollingToken, config, types, wantOptional 
 /** Targets of the current roll. Prefer dnd5e pre-roll config targets, then midi workflow, then user targets. */
 function _getRollTargets(activity, rollConfig = null) {
   const fromConfig = rollConfig?.targets;
-  if (fromConfig?.size) return fromConfig;
-  if (Array.isArray(fromConfig) && fromConfig.length) return new Set(fromConfig);
+  if (fromConfig?.size) {
+    _debug("case-by-case | _getRollTargets " + JSON.stringify({ source: "config", count: fromConfig.size }));
+    return fromConfig;
+  }
+  if (Array.isArray(fromConfig) && fromConfig.length) {
+    _debug("case-by-case | _getRollTargets " + JSON.stringify({ source: "configArray", count: fromConfig.length }));
+    return new Set(fromConfig);
+  }
 
+  // This roll's own targets, from our live workflow cache, so a re-target mid-turn can't drift in.
+  const liveWf = activity?.uuid ? _liveWorkflowByActivity.get(activity.uuid) : null;
+  if (liveWf?.targets?.size) {
+    _debug("case-by-case | _getRollTargets " + JSON.stringify({ source: "liveWorkflowCache", count: liveWf.targets.size }));
+    return liveWf.targets;
+  }
+
+  // Backup check against midi's own registry, usually a no-op.
   const wf = globalThis.MidiQOL?.Workflow?.getWorkflowByActivityUuid?.(activity?.uuid);
-  if (wf?.targets?.size) return wf.targets;
+  if (wf?.targets?.size) {
+    _debug("case-by-case | _getRollTargets " + JSON.stringify({ source: "midiWorkflow", count: wf.targets.size }));
+    return wf.targets;
+  }
 
+  _debug("case-by-case | _getRollTargets " + JSON.stringify({ source: "userTargets", count: game.user?.targets?.size ?? 0 }));
   return game.user?.targets ?? new Set();
 }
 
@@ -2972,6 +2859,16 @@ function _activityPrimaryDamageType(activity) {
     if (p?.type) return p.type;
   }
   return null;
+}
+
+/** Pull the first bracketed damage type tag out of a formula, e.g. "1d8[radiant]" -> "radiant"; null if missing or not a recognized type. */
+function _formulaPrimaryDamageType(formula) {
+  const match = String(formula ?? "").match(/\[(\w+)\]/);
+  if (!match) return null;
+  const type = match[1].toLowerCase();
+  const known = CONFIG?.DND5E?.damageTypes;
+  if (known && !(type in known)) return null;
+  return type;
 }
 
 /** Roll a formula once against the actor's data; returns the numeric total (0 on failure). */
