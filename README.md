@@ -2,6 +2,10 @@
 
 A Foundry module for dnd5e that lets you build conditional bonuses and auras without touching Active Effects. Everything gets checked and applied right when a roll happens, so nothing has to be written to a token just because it walked near someone.
 
+Heads up, I'm not a very good programmer, and a good 90% of this module was vibe coded. I've tried to keep on top of it and test things as I go, but if you run into a bug I'll do my best to fix it when I can.
+
+This is basically a spiritual successor to Build-a-Bonus. If you're on an older Foundry/dnd5e version, or just want something more established, go check out their work instead: https://foundryvtt.com/packages/babonus
+
 Requires lib-wrapper and midi-qol.
 
 ## Opening it up
@@ -22,7 +26,7 @@ And from an Active Effect:
 
 ## The window itself
 
-Left side is the list of bonuses on that document. Right side is the editor for whatever you've clicked on. Click a bonus in the list and it opens on the right, click a different one and it swaps over, no more separate popup windows. Add Bonus and Add Group sit up top, along with Paste if you've copied a bonus from somewhere else.
+Left side is the list of bonuses on that document. Right side is the editor for whatever you've clicked on. Click a bonus in the list and it opens on the right, click a different one and it swaps over. Add Bonus and Add Group sit up top, along with Paste if you've copied a bonus from somewhere else.
 
 ![The workbench window with a bonus open in the editor](tutorial-images/filledineditor.png)
 
@@ -36,29 +40,31 @@ Consumption and Stacking sit below that, more on those further down.
 
 ## Roll filters
 
-The Roll tab scopes a bonus down to specific circumstances about the roll itself: attack/spell action type, proficiency level, item types, weapon properties, spell schools, spell components, and so on. Flip a filter on and it opens up to show its options.
+The Roll tab scopes a bonus down to specific circumstances about the roll itself: attack/spell action type, proficiency level, item types, weapon properties, spell schools, spell components, and so on. Click a filter's title to expand it and see its options, the checkbox on the right is what actually switches it on.
 
 ![The Roll tab, Item Types filter expanded](tutorial-images/rolltab.png)
 
 ## Recipient filters
 
-The Recipient tab checks whoever's actually getting the bonus. For an aura that's the token in range, otherwise it's just whoever's rolling, no targeting needed either way. Has Condition, HP threshold, Has Effect (by Name) with a "must be active" option, Available Spell Slots (min/max), then Creature Type, Size, Has Movement, Knows Language, and a Comparison field down in Advanced for anything those don't cover, like `@attributes.hp.value <= @attributes.hp.max / 2`. The bonus only applies if the creature matches everything you've switched on.
+The Recipient tab checks whoever's actually getting the bonus. For an aura that's the token in range, otherwise it's just whoever's rolling, no targeting needed either way. The bonus only applies if the creature matches everything you've switched on.
 
 ![The Recipient tab with State, Creature, and Advanced filter groups](tutorial-images/recipienttab.png)
 
 ## Target filters
 
-The Target tab is the one that matters when you're rolling against something, an attack, damage, healing, that kind of thing. Same idea as Recipient but checking your actual target instead: conditions, HP threshold, has an effect by name (with a "must be active" option), how far away they are, creature type, size, movement, languages. Since the target can change roll to roll, none of this ever gets written to a sheet, it's all checked live.
+The Target tab is the one that matters when you're rolling against something, an attack, damage, healing, that kind of thing. Same idea as Recipient but checking your actual target instead. Since the target can change roll to roll, none of this ever gets written to a sheet, it's all checked live.
 
 ![The Target tab with HP Threshold, Has Effect, and Within Range filters](tutorial-images/targettab.png)
 
 ## Aura
 
-Flip Enable Aura on and the bonus projects out to nearby tokens at roll time instead of only applying to whoever it's on. Set a range, who it affects (allies, enemies, everyone), whether it includes the source, and whether it drops if the source goes unconscious. There's a color picker for the aura and a list of conditions that shut the whole thing off while the source has them.
+Flip Enable Aura on and the bonus projects out to nearby tokens at roll time instead of only applying to whoever it's on.
 
 ![The Aura tab with range, disposition, and blocked-status settings](tutorial-images/auratab.png)
 
-As the note in the window says: none of this touches the recipient's character sheet, it only applies at the moment of the roll. Writing effects to every nearby token every time someone moves would be a mess performance wise, so auras just get checked live instead.
+As the note in the window says: none of this touches the recipient's character sheet, it only applies at the moment of the roll. I've found that in the massive combats I run, auras tend to cause a lot of lag on movement, so these are built to be a more performant, slightly less robust alternative to what other modules provide.
+
+If you want something more robust for a specific case, you can also use a Case by Case bonus alongside an aura from a different module. Have that module's aura apply an effect, then attach a CbC bonus to that effect. It should propagate the bonus the way you'd expect.
 
 ## Optional bonuses and spending a resource
 
@@ -87,3 +93,5 @@ If a bonus lives on an item, This Item Only scopes it so it doesn't also apply t
 ## Copying bonuses between sheets
 
 Every bonus in the list has a copy icon. Copy one and hit Paste on another sheet's window to drop it in there too, saves rebuilding the same bonus twice.
+
+Copy just puts a big string of text on your clipboard, it isn't tied to Foundry in any way. So you can also paste it into Discord or wherever and send a bonus to a friend, another DM, or your own other Foundry instance, and they can paste it straight into their own Case by Case window.
